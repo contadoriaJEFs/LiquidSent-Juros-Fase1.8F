@@ -8,11 +8,22 @@
 // - Motor de correção monetária (cálculo e exibição)
 // =====================================================================
 
-window.parametrosCorrecaoAtual = null;
-window.parametrosJurosAtual = null;
-window.parametrosSelicAtual = null;
-window.diferencasAtualizacaoAtual = null;
-window.resultadosAtualizacao = null;
+// Inicialização segura das variáveis globais
+if (window.parametrosCorrecaoAtual === undefined) {
+    window.parametrosCorrecaoAtual = null;
+}
+if (window.parametrosJurosAtual === undefined) {
+    window.parametrosJurosAtual = null;
+}
+if (window.parametrosSelicAtual === undefined) {
+    window.parametrosSelicAtual = null;
+}
+if (window.diferencasAtualizacaoAtual === undefined) {
+    window.diferencasAtualizacaoAtual = null;
+}
+if (window.resultadosAtualizacao === undefined) {
+    window.resultadosAtualizacao = null;
+}
 
 // =====================================================================
 // AUXILIARES
@@ -61,8 +72,7 @@ function adminGerarNomeArquivo(tipo, nome) {
     var tipoMap = {
         'correcao_monetaria': 'correcao_monetaria',
         'juros_mora': 'juros_mora',
-        'selic': 'selic',
-        'taxa_legal': 'taxa_legal'
+        'selic': 'selic'
     };
     var prefixo = tipoMap[tipo] || 'parametro';
     return 'parametros_' + prefixo + '_' + nomeSanitizado + '.json';
@@ -77,33 +87,50 @@ function adminDataAtualFormatada() {
 }
 
 // =====================================================================
+// FUNÇÕES AUXILIARES PARA CATÁLOGO/BASE POR TIPO (Fase 1.8F-A)
+// =====================================================================
+
+function adminObterCatalogoPorTipo(tipo) {
+    if (tipo === 'correcao_monetaria') {
+        return window.CATALOGO_INDEXADORES_ATUALIZACAO || {};
+    } else if (tipo === 'juros_mora' || tipo === 'selic') {
+        return window.CATALOGO_INDEXADORES_JUROS || {};
+    }
+    return {};
+}
+
+function adminObterBasePorTipo(tipo) {
+    if (tipo === 'correcao_monetaria') {
+        return window.BASE_INDEXADORES_ATUALIZACAO || {};
+    } else if (tipo === 'juros_mora' || tipo === 'selic') {
+        return window.BASE_INDEXADORES_JUROS || {};
+    }
+    return {};
+}
+
+// =====================================================================
 // FUNÇÕES AUXILIARES PARA VERIFICAÇÃO DE ÍNDICES
 // =====================================================================
 
-function adminIndiceExisteNaBase(codigo) {
-    if (!window.INDEXADORES_ATUALIZACAO) return false;
-    return !!window.INDEXADORES_ATUALIZACAO[codigo];
+function adminIndiceExisteNaBase(codigo, tipo) {
+    var catalogo = adminObterCatalogoPorTipo(tipo);
+    return !!catalogo[codigo];
 }
 
-function adminIndiceCompativelComTipo(codigo, tipoParametro) {
-    if (!window.INDEXADORES_ATUALIZACAO) return false;
-    var item = window.INDEXADORES_ATUALIZACAO[codigo];
+function adminIndiceCompativelComTipo(codigo, tipo) {
+    var catalogo = adminObterCatalogoPorTipo(tipo);
+    var item = catalogo[codigo];
     if (!item) return false;
-    return item.tipo === tipoParametro;
+    return item.tipo === tipo;
 }
 
-function adminObterIndicesDisponiveisPorTipo(tipoParametro) {
-    if (!window.INDEXADORES_ATUALIZACAO) {
-        return [];
-    }
-
+function adminObterIndicesDisponiveisPorTipo(tipo) {
+    var catalogo = adminObterCatalogoPorTipo(tipo);
     var resultados = [];
-    var base = window.INDEXADORES_ATUALIZACAO;
-
-    for (var chave in base) {
-        if (base.hasOwnProperty(chave)) {
-            var item = base[chave];
-            if (item.tipo === tipoParametro) {
+    for (var chave in catalogo) {
+        if (catalogo.hasOwnProperty(chave)) {
+            var item = catalogo[chave];
+            if (item.tipo === tipo) {
                 resultados.push({
                     codigo: chave,
                     nome: item.nome || chave,
@@ -112,11 +139,9 @@ function adminObterIndicesDisponiveisPorTipo(tipoParametro) {
             }
         }
     }
-
     resultados.sort(function(a, b) {
         return a.nome.localeCompare(b.nome);
     });
-
     return resultados;
 }
 
@@ -160,7 +185,7 @@ function criarModalAdmin() {
                 <select id="adminTipoParametro" class="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm">
                     <option value="correcao_monetaria">Correção Monetária</option>
                     <option value="juros_mora">Juros de Mora</option>
-                    <option value="selic" disabled>SELIC (futuro)</option>
+                    <option value="selic">SELIC</option>
                     <option value="taxa_legal" disabled>Taxa Legal (futuro)</option>
                 </select>
             </div>
@@ -318,7 +343,7 @@ function adminCriarSelectIndice(valorAtual, preservarIncompativel) {
     var indices = adminObterIndicesDisponiveisPorTipo(tipoAtual);
     var html = '<select class="admin-select-indice w-full px-2 py-1 border border-slate-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">';
 
-    var existeNaBase = adminIndiceExisteNaBase(valorAtual);
+    var existeNaBase = adminIndiceExisteNaBase(valorAtual, tipoAtual);
     var compativel = adminIndiceCompativelComTipo(valorAtual, tipoAtual);
 
     if (preservarIncompativel && valorAtual && existeNaBase && !compativel) {
@@ -390,7 +415,7 @@ function adminAtualizarSelectsIndice() {
 
     selects.forEach(function(sel) {
         var valorAtual = sel.value;
-        var existeNaBase = adminIndiceExisteNaBase(valorAtual);
+        var existeNaBase = adminIndiceExisteNaBase(valorAtual, tipoAtual);
         var compativel = adminIndiceCompativelComTipo(valorAtual, tipoAtual);
 
         if (existeNaBase && !compativel) {
@@ -488,8 +513,9 @@ function adminValidarDados(dados) {
         return adminCompetenciaParaNumero(a.inicio) - adminCompetenciaParaNumero(b.inicio);
     });
 
-    var baseDisponivel = !!window.INDEXADORES_ATUALIZACAO;
-    var base = window.INDEXADORES_ATUALIZACAO || {};
+    // Obtém o catálogo correspondente ao tipo
+    var catalogo = adminObterCatalogoPorTipo(dados.tipo);
+    var baseDisponivel = Object.keys(catalogo).length > 0;
 
     for (var i = 0; i < periodosOrdenados.length; i++) {
         var p = periodosOrdenados[i];
@@ -500,10 +526,10 @@ function adminValidarDados(dados) {
         }
 
         if (baseDisponivel) {
-            if (!base[p.indice]) {
-                avisos.push('Linha ' + (i+1) + ': Índice "' + p.indice + '" não existe na base atual de indexadores. Será mantido no JSON, mas pode não ser reconhecido futuramente.');
+            if (!adminIndiceExisteNaBase(p.indice, dados.tipo)) {
+                avisos.push('Linha ' + (i+1) + ': Índice "' + p.indice + '" não existe no catálogo do tipo "' + dados.tipo + '". Será mantido no JSON, mas pode não ser reconhecido futuramente.');
             } else {
-                var tipoIndexador = base[p.indice].tipo;
+                var tipoIndexador = catalogo[p.indice].tipo;
                 if (tipoIndexador !== dados.tipo) {
                     avisos.push('Linha ' + (i+1) + ': Índice "' + p.indice + '" pertence ao tipo "' + tipoIndexador + '", mas o encadeamento é do tipo "' + dados.tipo + '".');
                 }
@@ -639,21 +665,24 @@ function adminImportarJSON(json) {
         return;
     }
 
-    var baseDisponivel = !!window.INDEXADORES_ATUALIZACAO;
+    var catalogo = adminObterCatalogoPorTipo(json.tipoParametro);
+    var baseDisponivel = Object.keys(catalogo).length > 0;
     var indicesNaoEncontrados = [];
     var indicesTipoIncompativel = [];
 
     if (baseDisponivel) {
-        var base = window.INDEXADORES_ATUALIZACAO;
         json.periodos.forEach(function(p) {
             if (p.indice) {
-                if (!base[p.indice]) {
+                if (!adminIndiceExisteNaBase(p.indice, json.tipoParametro)) {
                     if (indicesNaoEncontrados.indexOf(p.indice) === -1) {
                         indicesNaoEncontrados.push(p.indice);
                     }
-                } else if (base[p.indice].tipo !== json.tipoParametro) {
-                    if (indicesTipoIncompativel.indexOf(p.indice) === -1) {
-                        indicesTipoIncompativel.push(p.indice);
+                } else {
+                    var tipoIndexador = catalogo[p.indice].tipo;
+                    if (tipoIndexador !== json.tipoParametro) {
+                        if (indicesTipoIncompativel.indexOf(p.indice) === -1) {
+                            indicesTipoIncompativel.push(p.indice);
+                        }
                     }
                 }
             }
@@ -719,7 +748,9 @@ function adminCarregarParametroGuia5(file, tipoEsperado) {
                 return;
             }
             if (json.tipoParametro !== tipoEsperado) {
-                var nomeEsperado = tipoEsperado === 'correcao_monetaria' ? 'correção monetária' : 'juros de mora';
+                var nomeEsperado = tipoEsperado === 'correcao_monetaria' ? 'correção monetária' :
+                                   tipoEsperado === 'juros_mora' ? 'juros de mora' :
+                                   'SELIC';
                 adminExibirMensagemGuia5('Este arquivo não é de ' + nomeEsperado + '.', 'error', tipoEsperado);
                 return;
             }
@@ -728,20 +759,23 @@ function adminCarregarParametroGuia5(file, tipoEsperado) {
                 return;
             }
 
-            var baseDisponivel = !!window.INDEXADORES_ATUALIZACAO;
+            var catalogo = adminObterCatalogoPorTipo(json.tipoParametro);
+            var baseDisponivel = Object.keys(catalogo).length > 0;
             var indicesNaoEncontrados = [];
             var indicesTipoIncompativel = [];
             if (baseDisponivel) {
-                var base = window.INDEXADORES_ATUALIZACAO;
                 json.periodos.forEach(function(p) {
                     if (p.indice) {
-                        if (!base[p.indice]) {
+                        if (!adminIndiceExisteNaBase(p.indice, json.tipoParametro)) {
                             if (indicesNaoEncontrados.indexOf(p.indice) === -1) {
                                 indicesNaoEncontrados.push(p.indice);
                             }
-                        } else if (base[p.indice].tipo !== json.tipoParametro) {
-                            if (indicesTipoIncompativel.indexOf(p.indice) === -1) {
-                                indicesTipoIncompativel.push(p.indice);
+                        } else {
+                            var tipoIndexador = catalogo[p.indice].tipo;
+                            if (tipoIndexador !== json.tipoParametro) {
+                                if (indicesTipoIncompativel.indexOf(p.indice) === -1) {
+                                    indicesTipoIncompativel.push(p.indice);
+                                }
                             }
                         }
                     }
@@ -762,11 +796,24 @@ function adminCarregarParametroGuia5(file, tipoEsperado) {
                     msg += '\n⚠️ Atenção: índices incompatíveis com o tipo: ' + indicesTipoIncompativel.join(', ');
                 }
                 adminExibirMensagemGuia5(msg, 'success', tipoEsperado);
-                // Habilita botão de cálculo se houver diferenças importadas
                 atualizarBotoesAtualizacao();
             } else if (tipoEsperado === 'juros_mora') {
                 window.parametrosJurosAtual = json;
                 var msg = '✅ Parâmetros de juros carregados com sucesso!\n' +
+                          'Nome: ' + json.nome + '\n' +
+                          'Descrição: ' + (json.descricao || 'N/A') + '\n' +
+                          'Índices: ' + (json.indicesUtilizados ? json.indicesUtilizados.join(', ') : 'N/A') + '\n' +
+                          'Períodos: ' + json.periodos.length;
+                if (indicesNaoEncontrados.length > 0) {
+                    msg += '\n⚠️ Atenção: índices não encontrados na base: ' + indicesNaoEncontrados.join(', ');
+                }
+                if (indicesTipoIncompativel.length > 0) {
+                    msg += '\n⚠️ Atenção: índices incompatíveis com o tipo: ' + indicesTipoIncompativel.join(', ');
+                }
+                adminExibirMensagemGuia5(msg, 'success', tipoEsperado);
+            } else if (tipoEsperado === 'selic') {
+                window.parametrosSelicAtual = json;
+                var msg = '✅ Parâmetros SELIC carregados com sucesso!\n' +
                           'Nome: ' + json.nome + '\n' +
                           'Descrição: ' + (json.descricao || 'N/A') + '\n' +
                           'Índices: ' + (json.indicesUtilizados ? json.indicesUtilizados.join(', ') : 'N/A') + '\n' +
@@ -787,7 +834,9 @@ function adminCarregarParametroGuia5(file, tipoEsperado) {
 }
 
 function adminExibirMensagemGuia5(texto, tipo, tipoEsperado) {
-    var statusId = tipoEsperado === 'correcao_monetaria' ? 'statusCorrecao' : 'statusJuros';
+    var statusId = tipoEsperado === 'correcao_monetaria' ? 'statusCorrecao' :
+                   tipoEsperado === 'juros_mora' ? 'statusJuros' :
+                   'statusSelic';
     var div = document.getElementById(statusId);
     if (!div) return;
     div.className = 'text-sm p-2 rounded-md mt-1';
@@ -800,6 +849,40 @@ function adminExibirMensagemGuia5(texto, tipo, tipoEsperado) {
     }
     div.textContent = texto;
     div.style.whiteSpace = 'pre-wrap';
+}
+
+// =====================================================================
+// LIMPAR DIFERENÇAS DA GUIA 5 (Fase 1.8F-A)
+// =====================================================================
+
+function limparDiferencasAtualizacao(mensagem) {
+    window.diferencasAtualizacaoAtual = null;
+    window.resultadosAtualizacao = null;
+
+    var container = document.getElementById('containerTabelaDiferencas');
+    var tbody = document.getElementById('corpoDiferencasAtualizacao');
+    var resumo = document.getElementById('resumoAtualizacao');
+    var totalOriginalEl = document.getElementById('totalOriginalAtualizacao');
+    var totalCorrigidoEl = document.getElementById('totalCorrigidoAtualizacao');
+    var status = document.getElementById('statusDiferencas');
+    var statusAtualizacao = document.getElementById('statusAtualizacao');
+
+    if (container) container.classList.add('hidden');
+    if (resumo) resumo.classList.add('hidden');
+    if (tbody) tbody.innerHTML = '';
+    if (totalOriginalEl) totalOriginalEl.textContent = 'R$ 0,00';
+    if (totalCorrigidoEl) totalCorrigidoEl.textContent = 'R$ 0,00';
+
+    if (status) {
+        status.textContent = mensagem || 'Nenhuma diferença importada.';
+        status.className = 'text-sm text-slate-500';
+    }
+    if (statusAtualizacao) {
+        statusAtualizacao.textContent = 'Aguardando diferenças e parâmetros de correção.';
+        statusAtualizacao.className = 'text-sm text-slate-500';
+    }
+
+    atualizarBotoesAtualizacao();
 }
 
 // =====================================================================
@@ -1371,6 +1454,22 @@ document.addEventListener('DOMContentLoaded', function() {
             var file = e.target.files[0];
             if (file) {
                 adminCarregarParametroGuia5(file, 'juros_mora');
+            }
+            this.value = '';
+        });
+    }
+
+    // NOVO – Fase 1.8F-A: listener para SELIC
+    var btnSelic = document.getElementById('btnCarregarSelic');
+    var fileSelic = document.getElementById('fileInputSelic');
+    if (btnSelic && fileSelic) {
+        btnSelic.addEventListener('click', function() {
+            fileSelic.click();
+        });
+        fileSelic.addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (file) {
+                adminCarregarParametroGuia5(file, 'selic');
             }
             this.value = '';
         });

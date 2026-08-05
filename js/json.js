@@ -44,7 +44,7 @@ function coletarDadosCaso() {
                 dipDevido: document.getElementById('dipDevido').value,
                 possuiAbono: document.getElementById('possuiAbonoDevido').checked,
                 baseadoSalarioMinimo: document.getElementById('baseadoSalarioMinimoDevido').checked,
-                incluir13FinalAberto: document.getElementById('incluir13FinalAberto').checked // NOVO
+                incluir13FinalAberto: document.getElementById('incluir13FinalAberto').checked
             }
         },
         evolucaoDevida: {},
@@ -75,6 +75,11 @@ function coletarDadosCaso() {
                 dataReferencia: document.getElementById('dataReferenciaRenuncia').value,
                 observacoes: document.getElementById('obsRenuncia').value
             }
+        },
+        parametros: {
+            correcao: window.parametrosCorrecaoAtual || null,
+            juros: window.parametrosJurosAtual || null,
+            selic: window.parametrosSelicAtual || null
         }
     };
     return dados;
@@ -263,7 +268,6 @@ function importarCaso(event) {
                 }
             }
 
-            // NOVO: Restaurar incluir13FinalAberto
             const incluir13FinalAberto = document.getElementById('incluir13FinalAberto');
             if (incluir13FinalAberto) {
                 incluir13FinalAberto.checked = (bene.incluir13FinalAberto !== undefined) ? bene.incluir13FinalAberto : false;
@@ -318,6 +322,76 @@ function importarCaso(event) {
                 montarTabelaDiferencas();
             }
 
+            // =============================================================
+            // CORREÇÃO – Restauração dos parâmetros
+            // =============================================================
+            const params = dados.parametros || {};
+
+            // Sempre define as variáveis globais com o conteúdo do arquivo (ou null)
+            window.parametrosCorrecaoAtual = params.correcao || null;
+            window.parametrosJurosAtual = params.juros || null;
+            window.parametrosSelicAtual = params.selic || null;
+
+            // Atualiza os status visuais na Guia 5
+            const exibirStatusParametro = (tipo, objeto, statusId) => {
+                const el = document.getElementById(statusId);
+                if (!el) return;
+                if (objeto && objeto.nome) {
+                    let msg = '✅ ' + (tipo === 'correcao' ? 'Correção' : tipo === 'juros' ? 'Juros' : 'SELIC') + ' restaurado!\n';
+                    msg += 'Nome: ' + objeto.nome + '\n';
+                    msg += 'Descrição: ' + (objeto.descricao || 'N/A') + '\n';
+                    msg += 'Índices: ' + (objeto.indicesUtilizados ? objeto.indicesUtilizados.join(', ') : 'N/A') + '\n';
+                    msg += 'Períodos: ' + (objeto.periodos ? objeto.periodos.length : 0);
+                    el.textContent = msg;
+                    el.className = 'text-sm p-2 rounded-md mt-1 bg-green-100 text-green-700';
+                } else {
+                    el.textContent = 'Nenhum arquivo carregado.';
+                    el.className = 'text-sm p-2 rounded-md mt-1 bg-slate-100 text-slate-600';
+                }
+            };
+
+            // Usa a função protegida se disponível
+            if (typeof adminExibirMensagemGuia5 === 'function') {
+                // Para cada grupo, chamamos adminExibirMensagemGuia5 com o tipo correspondente
+                if (window.parametrosCorrecaoAtual) {
+                    adminExibirMensagemGuia5(
+                        '✅ Parâmetros de correção restaurados.\nNome: ' + window.parametrosCorrecaoAtual.nome +
+                        '\nPeríodos: ' + window.parametrosCorrecaoAtual.periodos.length,
+                        'success', 'correcao_monetaria'
+                    );
+                } else {
+                    adminExibirMensagemGuia5('Nenhum arquivo carregado.', 'neutral', 'correcao_monetaria');
+                }
+                if (window.parametrosJurosAtual) {
+                    adminExibirMensagemGuia5(
+                        '✅ Parâmetros de juros restaurados.\nNome: ' + window.parametrosJurosAtual.nome +
+                        '\nPeríodos: ' + window.parametrosJurosAtual.periodos.length,
+                        'success', 'juros_mora'
+                    );
+                } else {
+                    adminExibirMensagemGuia5('Nenhum arquivo carregado.', 'neutral', 'juros_mora');
+                }
+                if (window.parametrosSelicAtual) {
+                    adminExibirMensagemGuia5(
+                        '✅ Parâmetros SELIC restaurados.\nNome: ' + window.parametrosSelicAtual.nome +
+                        '\nPeríodos: ' + window.parametrosSelicAtual.periodos.length,
+                        'success', 'selic'
+                    );
+                } else {
+                    adminExibirMensagemGuia5('Nenhum arquivo carregado.', 'neutral', 'selic');
+                }
+            } else {
+                // Fallback para atualização direta dos elementos
+                exibirStatusParametro('correcao', window.parametrosCorrecaoAtual, 'statusCorrecao');
+                exibirStatusParametro('juros', window.parametrosJurosAtual, 'statusJuros');
+                exibirStatusParametro('selic', window.parametrosSelicAtual, 'statusSelic');
+            }
+
+            // Atualiza botão de cálculo (se houver dependência)
+            if (typeof atualizarBotoesAtualizacao === 'function') {
+                atualizarBotoesAtualizacao();
+            }
+
             if (!termoManual) calcularTermoInicial();
 
             alert('Dados do caso importados com sucesso!');
@@ -347,5 +421,16 @@ function novoCaso() {
         if (cbSM) cbSM.checked = false;
         const cbIncluir13 = document.getElementById('incluir13FinalAberto');
         if (cbIncluir13) cbIncluir13.checked = false;
+        window.parametrosCorrecaoAtual = null;
+        window.parametrosJurosAtual = null;
+        window.parametrosSelicAtual = null;
+        // Limpar status da Guia 5
+        ['statusCorrecao', 'statusJuros', 'statusSelic'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.textContent = 'Nenhum arquivo carregado.';
+                el.className = 'text-sm p-2 rounded-md mt-1 bg-slate-100 text-slate-600';
+            }
+        });
     }
 }
