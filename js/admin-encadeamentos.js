@@ -1045,7 +1045,7 @@ function adminCarregarParametroGuia5(file, tipoEsperado) {
             adminExibirMensagemGuia5('Tipo de arquivo não reconhecido para Juros e SELIC.', 'error', 'juros_selic');
 
         } catch (err) {
-            adminExibirMensagemGuia5('Erro ao ler o arquivo: ' + err.message, 'error', 'juros_selic');
+            adminExibirMensagemGuia5('Erro ao ler o arquivo: ' + err.message, 'error', tipoEsperado);
         }
     };
     reader.readAsText(file);
