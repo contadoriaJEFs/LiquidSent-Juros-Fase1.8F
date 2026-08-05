@@ -323,71 +323,60 @@ function importarCaso(event) {
             }
 
             // =============================================================
-            // CORREÇÃO – Restauração dos parâmetros
+            // Restauração dos parâmetros (Fase 1.8F-A2)
             // =============================================================
             const params = dados.parametros || {};
 
-            // Sempre define as variáveis globais com o conteúdo do arquivo (ou null)
+            // Atribuição direta (sempre sobrescreve com o que está no arquivo)
             window.parametrosCorrecaoAtual = params.correcao || null;
             window.parametrosJurosAtual = params.juros || null;
             window.parametrosSelicAtual = params.selic || null;
 
-            // Atualiza os status visuais na Guia 5
-            const exibirStatusParametro = (tipo, objeto, statusId) => {
-                const el = document.getElementById(statusId);
-                if (!el) return;
-                if (objeto && objeto.nome) {
-                    let msg = '✅ ' + (tipo === 'correcao' ? 'Correção' : tipo === 'juros' ? 'Juros' : 'SELIC') + ' restaurado!\n';
-                    msg += 'Nome: ' + objeto.nome + '\n';
-                    msg += 'Descrição: ' + (objeto.descricao || 'N/A') + '\n';
-                    msg += 'Índices: ' + (objeto.indicesUtilizados ? objeto.indicesUtilizados.join(', ') : 'N/A') + '\n';
-                    msg += 'Períodos: ' + (objeto.periodos ? objeto.periodos.length : 0);
-                    el.textContent = msg;
-                    el.className = 'text-sm p-2 rounded-md mt-1 bg-green-100 text-green-700';
-                } else {
-                    el.textContent = 'Nenhum arquivo carregado.';
-                    el.className = 'text-sm p-2 rounded-md mt-1 bg-slate-100 text-slate-600';
-                }
-            };
-
-            // Usa a função protegida se disponível
-            if (typeof adminExibirMensagemGuia5 === 'function') {
-                // Para cada grupo, chamamos adminExibirMensagemGuia5 com o tipo correspondente
+            // Atualizar status visuais
+            // Correção
+            const statusCorrecao = document.getElementById('statusCorrecao');
+            if (statusCorrecao) {
                 if (window.parametrosCorrecaoAtual) {
-                    adminExibirMensagemGuia5(
-                        '✅ Parâmetros de correção restaurados.\nNome: ' + window.parametrosCorrecaoAtual.nome +
-                        '\nPeríodos: ' + window.parametrosCorrecaoAtual.periodos.length,
-                        'success', 'correcao_monetaria'
-                    );
+                    const obj = window.parametrosCorrecaoAtual;
+                    let msg = '✅ Correção restaurada: ' + obj.nome;
+                    msg += ' (' + (obj.periodos ? obj.periodos.length : 0) + ' períodos)';
+                    statusCorrecao.textContent = msg;
+                    statusCorrecao.className = 'text-sm p-2 rounded-md mt-1 bg-green-100 text-green-700';
                 } else {
-                    adminExibirMensagemGuia5('Nenhum arquivo carregado.', 'neutral', 'correcao_monetaria');
+                    statusCorrecao.textContent = 'Nenhum arquivo carregado.';
+                    statusCorrecao.className = 'text-sm p-2 rounded-md mt-1 bg-slate-100 text-slate-600';
                 }
-                if (window.parametrosJurosAtual) {
-                    adminExibirMensagemGuia5(
-                        '✅ Parâmetros de juros restaurados.\nNome: ' + window.parametrosJurosAtual.nome +
-                        '\nPeríodos: ' + window.parametrosJurosAtual.periodos.length,
-                        'success', 'juros_mora'
-                    );
-                } else {
-                    adminExibirMensagemGuia5('Nenhum arquivo carregado.', 'neutral', 'juros_mora');
-                }
-                if (window.parametrosSelicAtual) {
-                    adminExibirMensagemGuia5(
-                        '✅ Parâmetros SELIC restaurados.\nNome: ' + window.parametrosSelicAtual.nome +
-                        '\nPeríodos: ' + window.parametrosSelicAtual.periodos.length,
-                        'success', 'selic'
-                    );
-                } else {
-                    adminExibirMensagemGuia5('Nenhum arquivo carregado.', 'neutral', 'selic');
-                }
-            } else {
-                // Fallback para atualização direta dos elementos
-                exibirStatusParametro('correcao', window.parametrosCorrecaoAtual, 'statusCorrecao');
-                exibirStatusParametro('juros', window.parametrosJurosAtual, 'statusJuros');
-                exibirStatusParametro('selic', window.parametrosSelicAtual, 'statusSelic');
             }
 
-            // Atualiza botão de cálculo (se houver dependência)
+            // Juros e SELIC (status unificado)
+            const statusJurosSelic = document.getElementById('statusJurosSelic');
+            if (statusJurosSelic) {
+                let msg = '';
+                if (window.parametrosJurosAtual || window.parametrosSelicAtual) {
+                    msg = '✅ Parâmetros restaurados:\n';
+                    if (window.parametrosJurosAtual) {
+                        const j = window.parametrosJurosAtual;
+                        msg += 'Juros: ' + (j.nomePacote || j.nome || 'sem nome') +
+                               ' (' + (j.periodos ? j.periodos.length : 0) + ' períodos)\n';
+                    } else {
+                        msg += 'Juros: não definido\n';
+                    }
+                    if (window.parametrosSelicAtual) {
+                        const s = window.parametrosSelicAtual;
+                        msg += 'SELIC: ' + (s.nomePacote || s.nome || 'sem nome') +
+                               ' (' + (s.periodos ? s.periodos.length : 0) + ' períodos)';
+                    } else {
+                        msg += 'SELIC: não definido';
+                    }
+                    statusJurosSelic.textContent = msg;
+                    statusJurosSelic.className = 'text-sm p-2 rounded-md mt-1 bg-green-100 text-green-700';
+                } else {
+                    statusJurosSelic.textContent = 'Nenhum arquivo carregado.';
+                    statusJurosSelic.className = 'text-sm p-2 rounded-md mt-1 bg-slate-100 text-slate-600';
+                }
+            }
+
+            // Atualizar botão de cálculo (se necessário)
             if (typeof atualizarBotoesAtualizacao === 'function') {
                 atualizarBotoesAtualizacao();
             }
@@ -421,16 +410,23 @@ function novoCaso() {
         if (cbSM) cbSM.checked = false;
         const cbIncluir13 = document.getElementById('incluir13FinalAberto');
         if (cbIncluir13) cbIncluir13.checked = false;
+
+        // Limpeza dos parâmetros globais
         window.parametrosCorrecaoAtual = null;
         window.parametrosJurosAtual = null;
         window.parametrosSelicAtual = null;
-        // Limpar status da Guia 5
-        ['statusCorrecao', 'statusJuros', 'statusSelic'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) {
-                el.textContent = 'Nenhum arquivo carregado.';
-                el.className = 'text-sm p-2 rounded-md mt-1 bg-slate-100 text-slate-600';
-            }
-        });
+
+        // Limpeza dos status
+        const statusCorrecao = document.getElementById('statusCorrecao');
+        if (statusCorrecao) {
+            statusCorrecao.textContent = 'Nenhum arquivo carregado.';
+            statusCorrecao.className = 'text-sm p-2 rounded-md mt-1 bg-slate-100 text-slate-600';
+        }
+
+        const statusJurosSelic = document.getElementById('statusJurosSelic');
+        if (statusJurosSelic) {
+            statusJurosSelic.textContent = 'Nenhum arquivo carregado.';
+            statusJurosSelic.className = 'text-sm p-2 rounded-md mt-1 bg-slate-100 text-slate-600';
+        }
     }
 }
