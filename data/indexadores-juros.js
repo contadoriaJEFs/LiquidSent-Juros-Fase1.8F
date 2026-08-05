@@ -1,3 +1,19 @@
+/*
+ * IMPORTANTE
+ *
+ * Todas as séries históricas deste arquivo são armazenadas
+ * em percentual mensal.
+ *
+ * Exemplos:
+ *
+ * 0.61 = 0,61%
+ * 1.31 = 1,31%
+ * 1.377047 = 1,377047%
+ *
+ * Conversões para fatores, coeficientes acumulados,
+ * percentuais acumulados e valores monetários devem ocorrer
+ * exclusivamente no motor de cálculo.
+ */
 // =====================================================================
 // CATÁLOGO E BASE DE JUROS / SELIC – Fase 1.8F-A (Estrutural)
 // =====================================================================
@@ -10,7 +26,7 @@ const CATALOGO_INDEXADORES_JUROS = {
         formato: "deterministico",
         natureza: "neutro",
         origem: "regra_sistema",
-        descricao: "Período sem incidência de juros. Fator = 1.0000."
+        descricao: "Taxa de juros igual a 0%."
     },
     JUROS_05_AM: {
         nome: "Juros de 0,5% ao mês",
@@ -42,6 +58,7 @@ const CATALOGO_INDEXADORES_JUROS = {
         nome: "Remuneração da Poupança",
         tipo: "juros_mora",
         formato: "historico",
+        unidade: "percentual",
         natureza: "indice_economico",
         origem: "serie_historica",
         descricao: "Índice de remuneração da caderneta de poupança, utilizado como juros de mora em determinados períodos."
@@ -50,6 +67,7 @@ const CATALOGO_INDEXADORES_JUROS = {
         nome: "Taxa Legal (art. 406 CC)",
         tipo: "juros_mora",
         formato: "historico",
+        unidade: "percentual",
         natureza: "taxa_legal",
         origem: "serie_historica",
         descricao: "Taxa legal prevista no art. 406 do Código Civil."
@@ -58,20 +76,21 @@ const CATALOGO_INDEXADORES_JUROS = {
         nome: "Taxa Legal Previdenciária",
         tipo: "juros_mora",
         formato: "historico",
+        unidade: "percentual",
         natureza: "taxa_legal",
         origem: "serie_historica",
         descricao: "Taxa legal aplicável aos benefícios previdenciários."
     },
 
     // ---- SELIC (renomeado de SELIC_EC113 para SELIC) ----
-  SELIC: {
-    nome: "SELIC",
-    tipo: "selic",
-    formato: "historico",
-    unidade: "percentual",
-    natureza: "indice_misto",
-    origem: "serie_historica",
-    descricao: "SELIC mensal armazenada em percentual."
+    SELIC: {
+        nome: "SELIC",
+        tipo: "selic",
+        formato: "historico",
+        unidade: "percentual",
+        natureza: "indice_misto",
+        origem: "serie_historica",
+        descricao: "SELIC mensal armazenada em percentual."
     }
 };
 
