@@ -55,24 +55,26 @@ function adminParseValorBrasileiro(texto) {
     return parseFloat(limpo) || 0;
 }
 
-function adminSanitizarNome(nome) {
-    if (!nome) return 'ENCADEAMENTO_SEM_NOME';
+function adminSanitizarNomeArquivo(nome) {
+    if (!nome || nome.trim() === '') return 'SEM-NOME';
     var semAcentos = nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    var sanitizado = semAcentos
+    // Substitui apóstrofos e similares por hífen
+    var comHifens = semAcentos.replace(/['’`´]/g, '-');
+    var sanitizado = comHifens
         .toUpperCase()
-        .replace(/\s+/g, '_')
-        .replace(/[^A-Z0-9_]/g, '');
-    sanitizado = sanitizado.replace(/_+/g, '_');
-    sanitizado = sanitizado.replace(/^_|_$/g, '');
-    return sanitizado || 'ENCADEAMENTO_SEM_NOME';
+        .replace(/\s+/g, '-')
+        .replace(/[^A-Z0-9-]/g, '')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+    return sanitizado || 'SEM-NOME';
 }
 
 function adminGerarNomeArquivo(tipo, nome) {
-    var nomeSanitizado = adminSanitizarNome(nome);
+    var nomeSanitizado = adminSanitizarNomeArquivo(nome);
     if (tipo === 'correcao_monetaria') {
-        return 'parametros_correcao_monetaria_' + nomeSanitizado + '.json';
+        return 'CORRE-' + nomeSanitizado + '.corr';
     } else if (tipo === 'juros_selic') {
-        return 'parametros_juros_selic_' + nomeSanitizado + '.json';
+        return 'JUROS-' + nomeSanitizado + '.jur';
     }
     return 'parametros_' + tipo + '_' + nomeSanitizado + '.json';
 }
@@ -267,12 +269,12 @@ function criarModalAdmin() {
 
         <div class="flex flex-wrap gap-3 mt-4 border-t border-slate-200 pt-4">
             <button type="button" id="adminValidar" class="px-4 py-2 bg-amber-600 text-white rounded-md hover:bg-amber-700 text-sm font-semibold shadow transition">Validar Encadeamento</button>
-            <button type="button" id="adminExportar" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-semibold shadow transition">Exportar JSON</button>
-            <button type="button" id="adminImportar" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-semibold shadow transition">Importar JSON</button>
+            <button type="button" id="adminExportar" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-semibold shadow transition">Exportar Arquivo</button>
+            <button type="button" id="adminImportar" class="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 text-sm font-semibold shadow transition">Importar Arquivo</button>
             <button type="button" id="adminFechar" class="px-4 py-2 border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50 text-sm font-semibold transition">Fechar</button>
         </div>
 
-        <input type="file" id="adminFileInput" accept=".json" class="hidden">
+        <input type="file" id="adminFileInput" accept=".corr,.jur,.json,application/json" class="hidden">
     `;
 
     overlay.appendChild(modalContent);
@@ -714,7 +716,7 @@ function adminExportarJSON(dados) {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        adminExibirMensagem('✅ JSON exportado com sucesso: ' + nomeArquivo, 'success');
+        adminExibirMensagem('✅ Arquivo exportado com sucesso: ' + nomeArquivo, 'success');
     } else if (dados.tipo === 'juros_selic') {
         var jsonObj = {
             tipoArquivo: 'parametros_juros_selic',
@@ -776,7 +778,7 @@ function adminExportarJSON(dados) {
         link.click();
         document.body.removeChild(link);
         URL.revokeObjectURL(url);
-        adminExibirMensagem('✅ JSON exportado com sucesso: ' + nomeArquivo, 'success');
+        adminExibirMensagem('✅ Arquivo exportado com sucesso: ' + nomeArquivo, 'success');
     }
 }
 
@@ -815,7 +817,7 @@ function adminImportarJSON(json) {
             });
             document.getElementById('adminNome').value = json.nome || '';
             document.getElementById('adminDescricao').value = json.descricao || '';
-            adminExibirMensagem('✅ JSON de correção importado com sucesso.', 'success');
+            adminExibirMensagem('✅ Arquivo de correção importado com sucesso.', 'success');
             return;
         } else if (json.tipoParametro === 'juros_mora') {
             document.getElementById('adminTipoParametro').value = 'juros_selic';
@@ -830,7 +832,7 @@ function adminImportarJSON(json) {
             });
             document.getElementById('adminNome').value = json.nome || '';
             document.getElementById('adminDescricao').value = json.descricao || '';
-            adminExibirMensagem('✅ JSON de juros antigo importado com sucesso. (SELIC vazio)', 'success');
+            adminExibirMensagem('✅ Arquivo de juros antigo importado com sucesso. (SELIC vazio)', 'success');
             return;
         } else if (json.tipoParametro === 'selic') {
             document.getElementById('adminTipoParametro').value = 'juros_selic';
@@ -845,7 +847,7 @@ function adminImportarJSON(json) {
             });
             document.getElementById('adminNome').value = json.nome || '';
             document.getElementById('adminDescricao').value = json.descricao || '';
-            adminExibirMensagem('✅ JSON de SELIC antigo importado com sucesso. (Juros vazio)', 'success');
+            adminExibirMensagem('✅ Arquivo de SELIC antigo importado com sucesso. (Juros vazio)', 'success');
             return;
         } else {
             adminExibirMensagem('❌ Tipo de parâmetro não reconhecido.', 'error');
@@ -905,11 +907,192 @@ function adminImportarJSON(json) {
 
         document.getElementById('adminNome').value = json.nome || '';
         document.getElementById('adminDescricao').value = json.descricao || '';
-        adminExibirMensagem('✅ JSON de Juros e SELIC importado com sucesso.', 'success');
+        adminExibirMensagem('✅ Arquivo de Juros e SELIC importado com sucesso.', 'success');
         return;
     }
 
     adminExibirMensagem('❌ O arquivo não é um JSON de parâmetros reconhecido.', 'error');
+}
+
+// =====================================================================
+// FUNÇÕES AUXILIARES PARA EXIBIÇÃO DOS PERÍODOS (Fase 1.8F-B4)
+// =====================================================================
+
+function adminObterNomeAmigavelIndice(codigo, tipoParametro) {
+    if (!codigo) return codigo;
+    var catalogo = adminObterCatalogoPorTipo(tipoParametro);
+    if (catalogo && catalogo[codigo] && catalogo[codigo].nome) {
+        return catalogo[codigo].nome;
+    }
+    return codigo;
+}
+
+function adminOrdenarPeriodosParaExibicao(periodos) {
+    if (!periodos || !Array.isArray(periodos)) return [];
+    var copia = periodos.slice();
+    copia.sort(function(a, b) {
+        return adminCompetenciaParaNumero(a.inicio) - adminCompetenciaParaNumero(b.inicio);
+    });
+    return copia;
+}
+
+function adminCriarBlocoPeriodosStatus(titulo, periodos, tipoParametro) {
+    var container = document.createElement('div');
+    container.className = 'mt-2';
+
+    var tituloEl = document.createElement('div');
+    tituloEl.className = 'text-xs font-semibold text-slate-600';
+    tituloEl.textContent = titulo;
+    container.appendChild(tituloEl);
+
+    if (!periodos || periodos.length === 0) {
+        var nenhum = document.createElement('div');
+        nenhum.className = 'text-xs text-slate-500 mt-1';
+        nenhum.textContent = 'Nenhum período definido.';
+        container.appendChild(nenhum);
+        return container;
+    }
+
+    var periodosOrdenados = adminOrdenarPeriodosParaExibicao(periodos);
+    var wrapper = document.createElement('div');
+    wrapper.className = 'flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs';
+
+    periodosOrdenados.forEach(function(p) {
+        var item = document.createElement('span');
+        item.className = 'inline-flex items-baseline whitespace-nowrap';
+
+        var bullet = document.createElement('span');
+        bullet.className = 'text-green-900 font-bold mr-1';
+        bullet.textContent = '►';
+        item.appendChild(bullet);
+
+        var nome = document.createElement('span');
+        nome.className = 'text-green-900 font-semibold';
+        nome.textContent = adminObterNomeAmigavelIndice(p.indice, tipoParametro) + ':';
+        item.appendChild(nome);
+
+        var intervalo = document.createElement('span');
+        intervalo.className = 'text-green-700 ml-1';
+        if (p.fim && p.fim.trim() !== '') {
+            intervalo.textContent = p.inicio + ' a ' + p.fim + ';';
+        } else {
+            intervalo.textContent = p.inicio + ' em diante;';
+        }
+        item.appendChild(intervalo);
+
+        wrapper.appendChild(item);
+    });
+
+    container.appendChild(wrapper);
+    return container;
+}
+
+function adminAtualizarStatusDetalhado(tipoEsperado, json, mensagemBase) {
+    var statusId = (tipoEsperado === 'correcao_monetaria') ? 'statusCorrecao' : 'statusJurosSelic';
+    var div = document.getElementById(statusId);
+    if (!div) return;
+
+    // Limpa o conteúdo atual
+    div.innerHTML = '';
+    div.className = 'flex-1 min-w-0 text-sm p-3 rounded-md bg-green-100 text-green-700';
+
+    // Mensagem principal
+    var msgEl = document.createElement('div');
+    msgEl.className = 'font-semibold';
+    msgEl.textContent = mensagemBase || '✅ Parâmetros carregados com sucesso!';
+    div.appendChild(msgEl);
+
+    // Nome e descrição (sempre exibidos)
+    var nomeEl = document.createElement('div');
+    nomeEl.className = 'mt-1';
+    nomeEl.textContent = 'Nome: ' + (json.nome || 'N/A');
+    div.appendChild(nomeEl);
+
+    var descEl = document.createElement('div');
+    descEl.className = 'text-xs';
+    descEl.textContent = 'Descrição: ' + (json.descricao || 'N/A');
+    div.appendChild(descEl);
+
+    if (tipoEsperado === 'correcao_monetaria') {
+        // Correção monetária
+        var periodos = json.periodos || [];
+        var indices = [];
+        periodos.forEach(function(p) {
+            if (p.indice && indices.indexOf(p.indice) === -1) {
+                indices.push(p.indice);
+            }
+        });
+        var indiceStr = indices.length > 0 ? indices.join(', ') : 'N/A';
+        var infoEl = document.createElement('div');
+        infoEl.className = 'text-xs mt-1';
+        infoEl.textContent = 'Índices: ' + indiceStr + '  |  Períodos: ' + periodos.length;
+        div.appendChild(infoEl);
+
+        var bloco = adminCriarBlocoPeriodosStatus('Encadeamento', periodos, 'correcao_monetaria');
+        div.appendChild(bloco);
+
+    } else if (tipoEsperado === 'juros_selic') {
+        // Juros e SELIC
+        // Juros
+        var jurosPeriodos = (json.juros && json.juros.periodos) ? json.juros.periodos : [];
+        var jurosEl = document.createElement('div');
+        jurosEl.className = 'mt-2';
+        var jurosTitulo = document.createElement('div');
+        jurosTitulo.className = 'font-semibold text-sm';
+        jurosTitulo.textContent = 'Juros:';
+        jurosEl.appendChild(jurosTitulo);
+
+        if (jurosPeriodos.length > 0) {
+            var jurosIndices = [];
+            jurosPeriodos.forEach(function(p) {
+                if (p.indice && jurosIndices.indexOf(p.indice) === -1) {
+                    jurosIndices.push(p.indice);
+                }
+            });
+            var jurosInfo = document.createElement('div');
+            jurosInfo.className = 'text-xs';
+            jurosInfo.textContent = 'Índices: ' + jurosIndices.join(', ') + '  |  Períodos: ' + jurosPeriodos.length;
+            jurosEl.appendChild(jurosInfo);
+            var blocoJuros = adminCriarBlocoPeriodosStatus('Encadeamento de Juros', jurosPeriodos, 'juros_mora');
+            jurosEl.appendChild(blocoJuros);
+        } else {
+            var nenhumJuros = document.createElement('div');
+            nenhumJuros.className = 'text-xs text-slate-600';
+            nenhumJuros.textContent = 'Nenhum período definido.';
+            jurosEl.appendChild(nenhumJuros);
+        }
+        div.appendChild(jurosEl);
+
+        // SELIC
+        var selicPeriodos = (json.selic && json.selic.periodos) ? json.selic.periodos : [];
+        var selicEl = document.createElement('div');
+        selicEl.className = 'mt-2';
+        var selicTitulo = document.createElement('div');
+        selicTitulo.className = 'font-semibold text-sm';
+        selicTitulo.textContent = 'SELIC:';
+        selicEl.appendChild(selicTitulo);
+
+        if (selicPeriodos.length > 0) {
+            var selicIndices = [];
+            selicPeriodos.forEach(function(p) {
+                if (p.indice && selicIndices.indexOf(p.indice) === -1) {
+                    selicIndices.push(p.indice);
+                }
+            });
+            var selicInfo = document.createElement('div');
+            selicInfo.className = 'text-xs';
+            selicInfo.textContent = 'Índices: ' + selicIndices.join(', ') + '  |  Períodos: ' + selicPeriodos.length;
+            selicEl.appendChild(selicInfo);
+            var blocoSelic = adminCriarBlocoPeriodosStatus('Encadeamento SELIC', selicPeriodos, 'selic');
+            selicEl.appendChild(blocoSelic);
+        } else {
+            var nenhumSelic = document.createElement('div');
+            nenhumSelic.className = 'text-xs text-slate-600';
+            nenhumSelic.textContent = 'Nenhum período definido.';
+            selicEl.appendChild(nenhumSelic);
+        }
+        div.appendChild(selicEl);
+    }
 }
 
 // =====================================================================
@@ -935,12 +1118,8 @@ function adminCarregarParametroGuia5(file, tipoEsperado) {
                     return;
                 }
                 window.parametrosCorrecaoAtual = json;
-                var msg = '✅ Parâmetros de correção carregados com sucesso!\n' +
-                          'Nome: ' + json.nome + '\n' +
-                          'Descrição: ' + (json.descricao || 'N/A') + '\n' +
-                          'Índices: ' + (json.indicesUtilizados ? json.indicesUtilizados.join(', ') : 'N/A') + '\n' +
-                          'Períodos: ' + json.periodos.length;
-                adminExibirMensagemGuia5(msg, 'success', 'correcao_monetaria');
+                // Atualiza status detalhado
+                adminAtualizarStatusDetalhado('correcao_monetaria', json, '✅ Parâmetros de correção carregados com sucesso!');
                 atualizarBotoesAtualizacao();
                 return;
             }
@@ -980,27 +1159,13 @@ function adminCarregarParametroGuia5(file, tipoEsperado) {
                 window.parametrosJurosAtual = jurosObj;
                 window.parametrosSelicAtual = selicObj;
 
-                var msg = '✅ Parâmetros de Juros e SELIC carregados com sucesso!\n' +
-                          'Nome: ' + json.nome + '\n' +
-                          'Descrição: ' + (json.descricao || 'N/A') + '\n\n';
-
-                if (jurosObj && jurosObj.periodos && jurosObj.periodos.length > 0) {
-                    msg += 'Juros:\n';
-                    msg += 'Índices: ' + (jurosObj.indicesUtilizados ? jurosObj.indicesUtilizados.join(', ') : 'N/A') + '\n';
-                    msg += 'Períodos: ' + jurosObj.periodos.length + '\n\n';
-                } else {
-                    msg += 'Juros: nenhum período definido.\n\n';
-                }
-
-                if (selicObj && selicObj.periodos && selicObj.periodos.length > 0) {
-                    msg += 'SELIC:\n';
-                    msg += 'Índices: ' + (selicObj.indicesUtilizados ? selicObj.indicesUtilizados.join(', ') : 'N/A') + '\n';
-                    msg += 'Períodos: ' + selicObj.periodos.length;
-                } else {
-                    msg += 'SELIC: nenhum período definido.';
-                }
-
-                adminExibirMensagemGuia5(msg, 'success', 'juros_selic');
+                var pacoteCompleto = {
+                    nome: json.nome,
+                    descricao: json.descricao || '',
+                    juros: jurosObj,
+                    selic: selicObj
+                };
+                adminAtualizarStatusDetalhado('juros_selic', pacoteCompleto, '✅ Parâmetros de Juros e SELIC carregados com sucesso!');
                 return;
             }
 
@@ -1016,13 +1181,13 @@ function adminCarregarParametroGuia5(file, tipoEsperado) {
                     }
                     window.parametrosJurosAtual = json;
                     window.parametrosSelicAtual = null;
-                    var msg = '✅ Parâmetros de juros (formato antigo) carregados.\n' +
-                              'Nome: ' + json.nome + '\n' +
-                              'Descrição: ' + (json.descricao || 'N/A') + '\n' +
-                              'Índices: ' + (json.indicesUtilizados ? json.indicesUtilizados.join(', ') : 'N/A') + '\n' +
-                              'Períodos: ' + json.periodos.length + '\n\n' +
-                              '⚠️ SELIC não definido (formato antigo).';
-                    adminExibirMensagemGuia5(msg, 'warning', 'juros_selic');
+                    var pacoteAntigo = {
+                        nome: json.nome,
+                        descricao: json.descricao || '',
+                        juros: json,
+                        selic: null
+                    };
+                    adminAtualizarStatusDetalhado('juros_selic', pacoteAntigo, '✅ Parâmetros de juros (formato antigo) carregados.');
                     return;
                 } else if (json.tipoParametro === 'selic') {
                     if (!json.nome || !Array.isArray(json.periodos)) {
@@ -1031,13 +1196,13 @@ function adminCarregarParametroGuia5(file, tipoEsperado) {
                     }
                     window.parametrosSelicAtual = json;
                     window.parametrosJurosAtual = null;
-                    var msg = '✅ Parâmetros SELIC (formato antigo) carregados.\n' +
-                              'Nome: ' + json.nome + '\n' +
-                              'Descrição: ' + (json.descricao || 'N/A') + '\n' +
-                              'Índices: ' + (json.indicesUtilizados ? json.indicesUtilizados.join(', ') : 'N/A') + '\n' +
-                              'Períodos: ' + json.periodos.length + '\n\n' +
-                              '⚠️ Juros não definido (formato antigo).';
-                    adminExibirMensagemGuia5(msg, 'warning', 'juros_selic');
+                    var pacoteAntigoSelic = {
+                        nome: json.nome,
+                        descricao: json.descricao || '',
+                        juros: null,
+                        selic: json
+                    };
+                    adminAtualizarStatusDetalhado('juros_selic', pacoteAntigoSelic, '✅ Parâmetros SELIC (formato antigo) carregados.');
                     return;
                 }
             }
@@ -1060,7 +1225,10 @@ function adminExibirMensagemGuia5(texto, tipo, tipoEsperado) {
     }
     var div = document.getElementById(statusId);
     if (!div) return;
-    div.className = 'text-sm p-2 rounded-md mt-1';
+
+    // Limpa e define estilo básico
+    div.innerHTML = '';
+    div.className = 'flex-1 min-w-0 text-sm p-3 rounded-md';
     if (tipo === 'success') {
         div.className += ' bg-green-100 text-green-700';
     } else if (tipo === 'error') {
@@ -1070,8 +1238,10 @@ function adminExibirMensagemGuia5(texto, tipo, tipoEsperado) {
     } else {
         div.className += ' bg-slate-100 text-slate-600';
     }
-    div.textContent = texto;
-    div.style.whiteSpace = 'pre-wrap';
+    // Para mensagens simples, coloca o texto em um parágrafo
+    var p = document.createElement('p');
+    p.textContent = texto;
+    div.appendChild(p);
 }
 
 // =====================================================================
