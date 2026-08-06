@@ -1672,11 +1672,53 @@ function calcularAtualizacaoGuia5() {
     var dataAtualizacaoInput = document.getElementById('dataAtualizacao2');
     var dataAtualizacaoBR = dataAtualizacaoInput ? dataAtualizacaoInput.value.trim() : '';
     var atualizacaoISO = guia5CompetenciaParaISO(dataAtualizacaoBR);
-
     if (!atualizacaoISO) {
         if (status) {
             status.textContent = '⚠️ Informe uma data de atualização válida no formato MM/AAAA.';
             status.className = 'text-sm text-amber-700';
+        }
+        return;
+    }
+    var atualizacaoNum = guia5ISOParaNumero(atualizacaoISO);
+
+    // =============================================================
+    // Filtro temporal: excluir parcelas posteriores à data da conta
+    // =============================================================
+    var diferencasFiltradas = [];
+    var excluidas = 0;
+    for (var i = 0; i < window.diferencasAtualizacaoAtual.length; i++) {
+        var item = window.diferencasAtualizacaoAtual[i];
+        var competenciaISO = guia5CompetenciaParaISO(item.competencia);
+        if (!competenciaISO) {
+            window.resultadosAtualizacao = null;
+            if (resumo) resumo.classList.add('hidden');
+            if (container) container.classList.add('hidden');
+            if (totalOriginalEl) totalOriginalEl.textContent = 'R$ 0,00';
+            if (totalCorrigidoEl) totalCorrigidoEl.textContent = 'R$ 0,00';
+            if (totalJurosEl) totalJurosEl.textContent = 'R$ 0,00';
+            if (status) {
+                status.textContent = '❌ Erro na atualização: Competência inválida: ' + item.competencia;
+                status.className = 'text-sm text-red-700';
+            }
+            return;
+        }
+        if (guia5ISOParaNumero(competenciaISO) <= atualizacaoNum) {
+            diferencasFiltradas.push(item);
+        } else {
+            excluidas++;
+        }
+    }
+
+    if (diferencasFiltradas.length === 0) {
+        window.resultadosAtualizacao = null;
+        if (resumo) resumo.classList.add('hidden');
+        if (container) container.classList.add('hidden');
+        if (totalOriginalEl) totalOriginalEl.textContent = 'R$ 0,00';
+        if (totalCorrigidoEl) totalCorrigidoEl.textContent = 'R$ 0,00';
+        if (totalJurosEl) totalJurosEl.textContent = 'R$ 0,00';
+        if (status) {
+            status.textContent = '❌ Nenhuma parcela possui competência igual ou anterior à Data de Atualização.';
+            status.className = 'text-sm text-red-700';
         }
         return;
     }
@@ -1702,7 +1744,8 @@ function calcularAtualizacaoGuia5() {
         var totalJuros = 0;
         var resultados = [];
 
-        var dadosAtualizados = window.diferencasAtualizacaoAtual.map(function(item) {
+        for (var idx = 0; idx < diferencasFiltradas.length; idx++) {
+            var item = diferencasFiltradas[idx];
             var competenciaISO = guia5CompetenciaParaISO(item.competencia);
             if (!competenciaISO) {
                 throw new Error('Competência inválida: ' + item.competencia);
@@ -1757,8 +1800,7 @@ function calcularAtualizacaoGuia5() {
             }
 
             resultados.push(obj);
-            return obj;
-        });
+        }
 
         window.resultadosAtualizacao = {
             dataAtualizacao: dataAtualizacaoBR,
@@ -1771,15 +1813,19 @@ function calcularAtualizacaoGuia5() {
             itens: resultados
         };
 
-        renderizarTabelaCorrigida(dadosAtualizados);
+        renderizarTabelaCorrigida(resultados);
 
         if (totalOriginalEl) totalOriginalEl.textContent = formatarMoedaAtualizacao(totalOriginal);
         if (totalCorrigidoEl) totalCorrigidoEl.textContent = formatarMoedaAtualizacao(totalCorrigido);
         if (totalJurosEl) totalJurosEl.textContent = formatarMoedaAtualizacao(totalJuros);
         if (resumo) resumo.classList.remove('hidden');
 
+        var msg = '✅ Atualização calculada com sucesso.';
+        if (excluidas > 0) {
+            msg += ' ' + excluidas + ' parcela(s) posterior(es) à data da conta foram desconsideradas.';
+        }
         if (status) {
-            status.textContent = '✅ Atualização calculada com sucesso.';
+            status.textContent = msg;
             status.className = 'text-sm text-green-700';
         }
 
