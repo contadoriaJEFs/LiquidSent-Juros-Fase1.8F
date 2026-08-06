@@ -1499,6 +1499,89 @@ function guia5CalcularCoeficienteMensal(competenciaISO, atualizacaoISO, parametr
     };
 }
 
+// =====================================================================
+// FASE 1.8F-B1 – MOTOR INTERNO DE JUROS DETERMINÍSTICOS
+// =====================================================================
+
+function guia5ObterTaxaJurosDeterministica(indice) {
+    switch (indice) {
+        case 'SEM_JUROS':
+            return 0;
+        case 'JUROS_05_AM':
+            return 0.5;
+        case 'JUROS_1_AM':
+            return 1;
+        case 'JUROS_2_AA_EC136':
+            return 2 / 12; // 0.1666666666666667
+        default:
+            // Não implementado nesta fase
+            throw new Error('Índice de juros ainda não implementado nesta fase: ' + indice);
+    }
+}
+
+function guia5CalcularJurosDeterministicos(item, inicioJurosISO, atualizacaoISO, parametrosJuros) {
+    // 1. Obter a competência da parcela em ISO
+    var competenciaISO = item.competenciaISO;
+
+    // 2. Determinar o início efetivo: max(competencia, inicioJuros)
+    var inicioNum = Math.max(
+        guia5ISOParaNumero(competenciaISO),
+        guia5ISOParaNumero(inicioJurosISO)
+    );
+    var inicioEfetivoISO = String(Math.floor(inicioNum / 100)) + '-' + String(inicioNum % 100).padStart(2, '0');
+
+    // 3. O primeiro mês a considerar é o mês seguinte (exclui o mês de início)
+    var cursor = guia5ProximaCompetenciaISO(inicioEfetivoISO);
+    var fimNum = guia5ISOParaNumero(atualizacaoISO);
+
+    var criteriosJuros = [];
+    var detalhamentoJuros = [];
+    var totalTaxa = 0;
+    var meses = 0;
+
+    while (guia5ISOParaNumero(cursor) <= fimNum) {
+        // Localizar período do encadeamento de juros
+        var periodo = guia5ObterPeriodoDoEncadeamento(parametrosJuros, cursor);
+        if (!periodo) {
+            throw new Error('Não há período de juros definido para a competência ' + guia5ISOParaBR(cursor) + '.');
+        }
+
+        var taxa = guia5ObterTaxaJurosDeterministica(periodo.indice);
+        totalTaxa += taxa;
+        meses++;
+
+        // Registrar critério sem duplicação
+        if (criteriosJuros.indexOf(periodo.indice) === -1) {
+            criteriosJuros.push(periodo.indice);
+        }
+
+        detalhamentoJuros.push({
+            competenciaISO: cursor,
+            indice: periodo.indice,
+            taxaPercentual: taxa
+        });
+
+        cursor = guia5ProximaCompetenciaISO(cursor);
+    }
+
+    // 4. Calcular o valor monetário
+    var valorJuros = item.valorCorrigido * totalTaxa / 100;
+
+    return {
+        inicioJurosEfetivoISO: inicioEfetivoISO,
+        fimJurosISO: atualizacaoISO,
+        criteriosJuros: criteriosJuros,
+        quantidadeMesesJuros: meses,
+        percentualJurosTotal: totalTaxa,
+        valorJuros: valorJuros,
+        detalhamentoJuros: detalhamentoJuros  // para auditoria, ainda não exibido
+    };
+}
+
+// =====================================================================
+// FUNÇÃO PRINCIPAL DE CÁLCULO DA ATUALIZAÇÃO (MODIFICADA)
+// =====================================================================
+
 function calcularAtualizacaoGuia5() {
     var status = document.getElementById('statusAtualizacao');
     var container = document.getElementById('containerTabelaDiferencas');
@@ -1540,9 +1623,26 @@ function calcularAtualizacaoGuia5() {
         return;
     }
 
+    // Validação do início dos juros (apenas se houver parâmetros de juros)
+    var inicioJurosBR = '';
+    var inicioJurosISO = null;
+    if (window.parametrosJurosAtual) {
+        var inicioJurosInput = document.getElementById('inicioJuros2');
+        inicioJurosBR = inicioJurosInput ? inicioJurosInput.value.trim() : '';
+        inicioJurosISO = guia5CompetenciaParaISO(inicioJurosBR);
+        if (!inicioJurosISO) {
+            if (status) {
+                status.textContent = '⚠️ Informe um Início dos Juros válido no formato MM/AAAA.';
+                status.className = 'text-sm text-amber-700';
+            }
+            return;
+        }
+    }
+
     try {
         var totalOriginal = 0;
         var totalCorrigido = 0;
+        var totalJuros = 0;
         var resultados = [];
 
         var dadosAtualizados = window.diferencasAtualizacaoAtual.map(function(item) {
@@ -1551,6 +1651,7 @@ function calcularAtualizacaoGuia5() {
                 throw new Error('Competência inválida: ' + item.competencia);
             }
 
+            // 1. Corrigir monetariamente
             var resultadoCoef = guia5CalcularCoeficienteMensal(
                 competenciaISO,
                 atualizacaoISO,
@@ -1563,6 +1664,7 @@ function calcularAtualizacaoGuia5() {
             totalOriginal += diferencaOriginal;
             totalCorrigido += valorCorrigido;
 
+            // 2. Construir objeto base
             var obj = {
                 competencia: item.competencia,
                 competenciaISO: competenciaISO,
@@ -1571,19 +1673,54 @@ function calcularAtualizacaoGuia5() {
                 coeficiente: resultadoCoef.coeficiente,
                 valorCorrigido: valorCorrigido
             };
+
+            // 3. Juros (apenas se houver parâmetros)
+            if (window.parametrosJurosAtual) {
+                var juros = guia5CalcularJurosDeterministicos(obj, inicioJurosISO, atualizacaoISO, window.parametrosJurosAtual);
+                // Preencher campos de juros
+                obj.inicioJurosEfetivoISO = juros.inicioJurosEfetivoISO;
+                obj.inicioJurosEfetivo = guia5ISOParaBR(juros.inicioJurosEfetivoISO);
+                obj.fimJurosISO = juros.fimJurosISO;
+                obj.criteriosJuros = juros.criteriosJuros;
+                obj.quantidadeMesesJuros = juros.quantidadeMesesJuros;
+                obj.percentualJurosAntesSelic = juros.percentualJurosTotal;
+                obj.percentualTaxaLegal = 0; // não implementado nesta fase
+                obj.percentualJurosTotal = juros.percentualJurosTotal;
+                obj.valorJuros = juros.valorJuros;
+                obj.detalhamentoJuros = juros.detalhamentoJuros; // para auditoria
+
+                totalJuros += obj.valorJuros;
+            } else {
+                // Sem juros, preencher com zeros
+                obj.inicioJurosEfetivoISO = null;
+                obj.inicioJurosEfetivo = null;
+                obj.fimJurosISO = null;
+                obj.criteriosJuros = [];
+                obj.quantidadeMesesJuros = 0;
+                obj.percentualJurosAntesSelic = 0;
+                obj.percentualTaxaLegal = 0;
+                obj.percentualJurosTotal = 0;
+                obj.valorJuros = 0;
+                obj.detalhamentoJuros = [];
+            }
+
             resultados.push(obj);
             return obj;
         });
 
+        // Atualizar resultados globais
         window.resultadosAtualizacao = {
             dataAtualizacao: dataAtualizacaoBR,
             dataAtualizacaoISO: atualizacaoISO,
             parametrosCorrecao: window.parametrosCorrecaoAtual,
+            parametrosJuros: window.parametrosJurosAtual || null,
             totalOriginal: totalOriginal,
             totalCorrigido: totalCorrigido,
+            totalJuros: totalJuros,
             itens: resultados
         };
 
+        // Renderizar a tabela (apenas correção, como antes)
         renderizarTabelaCorrigida(dadosAtualizados);
 
         if (totalOriginalEl) totalOriginalEl.textContent = formatarMoedaAtualizacao(totalOriginal);
