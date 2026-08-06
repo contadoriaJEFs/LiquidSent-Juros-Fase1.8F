@@ -312,7 +312,7 @@
                         <div class="flex flex-wrap gap-3">
                             <button type="button" onclick="exportarCaso()" class="px-4 py-2 bg-emerald-600 text-white rounded-md hover:bg-emerald-700 text-sm font-semibold shadow transition">Exportar Dados do Caso</button>
                             <button type="button" onclick="document.getElementById('fileInputCaso').click()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-semibold shadow transition">Importar Dados do Caso</button>
-                            <input type="file" id="fileInputCaso" accept=".json" class="hidden" onchange="importarCaso(event)">
+                            <input type="file" id="fileInputCaso" accept=".contadjus,.json,application/json" class="hidden" onchange="importarCaso(event)">
                             <button type="button" onclick="novoCaso()" class="px-4 py-2 border border-slate-300 text-slate-700 rounded-md hover:bg-slate-50 text-sm font-semibold transition">Novo Caso / Limpar</button>
                         </div>
                     </div>
@@ -541,24 +541,24 @@
                 <!-- 2. Parâmetros de Correção Monetária -->
                 <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 mt-4">
                     <h4 class="text-sm font-bold text-slate-700 uppercase tracking-wider mb-3">📈 Parâmetros de Correção Monetária</h4>
-                    <div class="flex flex-wrap items-center gap-3">
-                        <button id="btnCarregarCorrecao" class="w-56 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-semibold shadow transition">
-                            Carregar JSON de Correção
+                    <div class="flex flex-col md:flex-row md:items-start gap-3">
+                        <button id="btnCarregarCorrecao" class="w-full md:w-56 shrink-0 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-semibold shadow transition">
+                            Carregar Parâmetros de Correção
                         </button>
-                        <input type="file" id="fileInputCorrecao" accept=".json" class="hidden">
-                        <div id="statusCorrecao" class="text-sm text-slate-500">Nenhum arquivo carregado.</div>
+                        <input type="file" id="fileInputCorrecao" accept=".corr,.json,application/json" class="hidden">
+                        <div id="statusCorrecao" class="flex-1 min-w-0 text-sm text-slate-500">Nenhum arquivo carregado.</div>
                     </div>
                 </div>
 
                 <!-- 3. Parâmetros de Juros e SELIC (UNIFICADO) -->
                 <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 mt-4">
                     <h4 class="text-sm font-bold text-slate-700 uppercase tracking-wider mb-3">📊 Parâmetros de Juros e SELIC</h4>
-                    <div class="flex flex-wrap items-center gap-3">
-                        <button id="btnCarregarJurosSelic" class="w-56 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-semibold shadow transition">
-                            Carregar JSON de Juros e SELIC
+                    <div class="flex flex-col md:flex-row md:items-start gap-3">
+                        <button id="btnCarregarJurosSelic" class="w-full md:w-56 shrink-0 px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm font-semibold shadow transition">
+                            Carregar Parâmetros de Juros e SELIC
                         </button>
-                        <input type="file" id="fileInputJurosSelic" accept=".json" class="hidden">
-                        <div id="statusJurosSelic" class="text-sm text-slate-500">Nenhum arquivo carregado.</div>
+                        <input type="file" id="fileInputJurosSelic" accept=".jur,.json,application/json" class="hidden">
+                        <div id="statusJurosSelic" class="flex-1 min-w-0 text-sm text-slate-500">Nenhum arquivo carregado.</div>
                     </div>
                 </div>
 
