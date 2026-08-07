@@ -58,7 +58,6 @@ function adminParseValorBrasileiro(texto) {
 function adminSanitizarNomeArquivo(nome) {
     if (!nome || nome.trim() === '') return 'SEM-NOME';
     var semAcentos = nome.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    // Substitui apóstrofos e similares por hífen
     var comHifens = semAcentos.replace(/['’`´]/g, '-');
     var sanitizado = comHifens
         .toUpperCase()
@@ -570,7 +569,6 @@ function adminValidarDados(dados) {
             avisos = avisos.concat(resultSelic.avisos);
         }
 
-        // Bloquear pacote totalmente vazio (Juros vazio E SELIC vazio)
         var jurosVazio = !dados.juros || !dados.juros.periodos || dados.juros.periodos.length === 0;
         var selicVazio = !dados.selic || !dados.selic.periodos || dados.selic.periodos.length === 0;
         if (jurosVazio && selicVazio) {
@@ -787,11 +785,7 @@ function adminExportarJSON(dados) {
 // =====================================================================
 
 function adminImportarJSON(json) {
-    // =============================================================
-    // VALIDAÇÃO DE ESTRUTURA (formato antigo)
-    // =============================================================
     if (json.tipoArquivo === 'parametros_atualizacao') {
-        // Valida campos obrigatórios
         if (!json.tipoParametro) {
             adminExibirMensagem('❌ JSON inválido: tipoParametro ausente.', 'error');
             return;
@@ -805,7 +799,6 @@ function adminImportarJSON(json) {
             return;
         }
 
-        // Agora processa conforme o tipo
         if (json.tipoParametro === 'correcao_monetaria') {
             document.getElementById('adminTipoParametro').value = 'correcao_monetaria';
             adminTipoAtual = 'correcao_monetaria';
@@ -855,9 +848,6 @@ function adminImportarJSON(json) {
         }
     }
 
-    // =============================================================
-    // VALIDAÇÃO DE ESTRUTURA (novo pacote)
-    // =============================================================
     if (json.tipoArquivo === 'parametros_juros_selic') {
         if (json.tipoParametro !== 'juros_selic') {
             adminExibirMensagem('❌ JSON inválido: tipo do pacote de Juros e SELIC incompatível.', 'error');
@@ -868,14 +858,12 @@ function adminImportarJSON(json) {
             return;
         }
 
-        // Valida juros se existir
         if (json.juros !== null && json.juros !== undefined) {
             if (!Array.isArray(json.juros.periodos)) {
                 adminExibirMensagem('❌ JSON inválido: períodos de juros ausentes ou inválidos.', 'error');
                 return;
             }
         }
-        // Valida selic se existir
         if (json.selic !== null && json.selic !== undefined) {
             if (!Array.isArray(json.selic.periodos)) {
                 adminExibirMensagem('❌ JSON inválido: períodos SELIC ausentes ou inválidos.', 'error');
@@ -883,7 +871,6 @@ function adminImportarJSON(json) {
             }
         }
 
-        // Importação propriamente dita
         document.getElementById('adminTipoParametro').value = 'juros_selic';
         adminTipoAtual = 'juros_selic';
         adminAlternarSeccoes('juros_selic');
@@ -992,17 +979,14 @@ function adminAtualizarStatusDetalhado(tipoEsperado, json, mensagemBase) {
     var div = document.getElementById(statusId);
     if (!div) return;
 
-    // Limpa o conteúdo atual
     div.innerHTML = '';
     div.className = 'flex-1 min-w-0 text-sm p-3 rounded-md bg-green-100 text-green-700';
 
-    // Mensagem principal
     var msgEl = document.createElement('div');
     msgEl.className = 'font-semibold';
     msgEl.textContent = mensagemBase || '✅ Parâmetros carregados com sucesso!';
     div.appendChild(msgEl);
 
-    // Nome e descrição (sempre exibidos)
     var nomeEl = document.createElement('div');
     nomeEl.className = 'mt-1';
     nomeEl.textContent = 'Nome: ' + (json.nome || 'N/A');
@@ -1014,7 +998,6 @@ function adminAtualizarStatusDetalhado(tipoEsperado, json, mensagemBase) {
     div.appendChild(descEl);
 
     if (tipoEsperado === 'correcao_monetaria') {
-        // Correção monetária
         var periodos = json.periodos || [];
         var indices = [];
         periodos.forEach(function(p) {
@@ -1032,8 +1015,6 @@ function adminAtualizarStatusDetalhado(tipoEsperado, json, mensagemBase) {
         div.appendChild(bloco);
 
     } else if (tipoEsperado === 'juros_selic') {
-        // Juros e SELIC
-        // Juros
         var jurosPeriodos = (json.juros && json.juros.periodos) ? json.juros.periodos : [];
         var jurosEl = document.createElement('div');
         jurosEl.className = 'mt-2';
@@ -1063,7 +1044,6 @@ function adminAtualizarStatusDetalhado(tipoEsperado, json, mensagemBase) {
         }
         div.appendChild(jurosEl);
 
-        // SELIC
         var selicPeriodos = (json.selic && json.selic.periodos) ? json.selic.periodos : [];
         var selicEl = document.createElement('div');
         selicEl.className = 'mt-2';
@@ -1105,11 +1085,7 @@ function adminCarregarParametroGuia5(file, tipoEsperado) {
         try {
             var json = JSON.parse(e.target.result);
 
-            // =============================================================
-            // FLUXO A: CORREÇÃO MONETÁRIA
-            // =============================================================
             if (tipoEsperado === 'correcao_monetaria') {
-                // Valida estrutura
                 if (json.tipoArquivo !== 'parametros_atualizacao' ||
                     json.tipoParametro !== 'correcao_monetaria' ||
                     !json.nome ||
@@ -1118,19 +1094,12 @@ function adminCarregarParametroGuia5(file, tipoEsperado) {
                     return;
                 }
                 window.parametrosCorrecaoAtual = json;
-                // Atualiza status detalhado
                 adminAtualizarStatusDetalhado('correcao_monetaria', json, '✅ Parâmetros de correção carregados com sucesso!');
                 atualizarBotoesAtualizacao();
                 return;
             }
 
-            // =============================================================
-            // FLUXO B: JUROS E SELIC
-            // =============================================================
-
-            // 1. Tentar novo pacote
             if (json.tipoArquivo === 'parametros_juros_selic' && json.tipoParametro === 'juros_selic') {
-                // Valida estrutura
                 if (!json.nome) {
                     adminExibirMensagemGuia5('JSON inválido: nome ausente.', 'error', 'juros_selic');
                     return;
@@ -1169,7 +1138,6 @@ function adminCarregarParametroGuia5(file, tipoEsperado) {
                 return;
             }
 
-            // 2. Tentar formatos antigos
             if (json.tipoArquivo === 'parametros_atualizacao') {
                 if (json.tipoParametro === 'correcao_monetaria') {
                     adminExibirMensagemGuia5('Este arquivo é de correção monetária, não de juros/SELIC.', 'error', 'juros_selic');
@@ -1226,7 +1194,6 @@ function adminExibirMensagemGuia5(texto, tipo, tipoEsperado) {
     var div = document.getElementById(statusId);
     if (!div) return;
 
-    // Limpa e define estilo básico
     div.innerHTML = '';
     div.className = 'flex-1 min-w-0 text-sm p-3 rounded-md';
     if (tipo === 'success') {
@@ -1238,7 +1205,6 @@ function adminExibirMensagemGuia5(texto, tipo, tipoEsperado) {
     } else {
         div.className += ' bg-slate-100 text-slate-600';
     }
-    // Para mensagens simples, coloca o texto em um parágrafo
     var p = document.createElement('p');
     p.textContent = texto;
     div.appendChild(p);
@@ -1436,14 +1402,11 @@ function renderizarTabelaCorrigida(dados) {
         tr.appendChild(tdCorr);
 
         // --- NOVAS CÉLULAS (Fase 1.8F-B2) ---
-
-        // 1. % Juros antes da SELIC
         var tdJurosAntes = document.createElement('td');
         tdJurosAntes.className = 'p-2 text-right font-mono';
         tdJurosAntes.textContent = formatarPercentualAtualizacao(item.percentualJurosAntesSelic);
         tr.appendChild(tdJurosAntes);
 
-        // 2. Taxa Legal
         var tdTaxaLegal = document.createElement('td');
         tdTaxaLegal.className = 'p-2 text-right font-mono';
         if (item.percentualTaxaLegal !== undefined && item.percentualTaxaLegal !== null && item.percentualTaxaLegal !== 0) {
@@ -1453,13 +1416,11 @@ function renderizarTabelaCorrigida(dados) {
         }
         tr.appendChild(tdTaxaLegal);
 
-        // 3. % Juros até a atualização
         var tdJurosTotal = document.createElement('td');
         tdJurosTotal.className = 'p-2 text-right font-mono';
         tdJurosTotal.textContent = formatarPercentualAtualizacao(item.percentualJurosTotal);
         tr.appendChild(tdJurosTotal);
 
-        // 4. Juros de Mora (R$)
         var tdJurosValor = document.createElement('td');
         tdJurosValor.className = 'p-2 text-right font-mono font-semibold';
         if (item.valorJuros !== undefined && item.valorJuros !== null) {
@@ -1732,10 +1693,14 @@ function guia5CalcularCoeficienteMensal(competenciaISO, atualizacaoISO, parametr
 }
 
 // =====================================================================
-// FASE 1.8F-B1 – MOTOR INTERNO DE JUROS DETERMINÍSTICOS
+// FASE 1.8F-B1 – MOTOR INTERNO DE JUROS DETERMINÍSTICOS (Fase 1.8F-C estendido)
 // =====================================================================
 
-function guia5ObterTaxaJurosDeterministica(indice) {
+/**
+ * Obtém a taxa mensal percentual para um determinado índice e competência.
+ * Suporta índices determinísticos e históricos (JUROS_POUPANCA).
+ */
+function guia5ObterTaxaJurosMensal(indice, competenciaISO) {
     switch (indice) {
         case 'SEM_JUROS':
             return 0;
@@ -1745,6 +1710,15 @@ function guia5ObterTaxaJurosDeterministica(indice) {
             return 1;
         case 'JUROS_2_AA_EC136':
             return 2 / 12; // 0.1666666666666667
+        case 'JUROS_POUPANCA':
+            if (!window.BASE_INDEXADORES_JUROS || !window.BASE_INDEXADORES_JUROS.JUROS_POUPANCA) {
+                throw new Error('Base da Poupança não carregada.');
+            }
+            var taxa = window.BASE_INDEXADORES_JUROS.JUROS_POUPANCA[competenciaISO];
+            if (taxa === undefined || taxa === null) {
+                throw new Error('Competência ' + competenciaISO + ' não encontrada na série da Poupança.');
+            }
+            return taxa;
         default:
             throw new Error('Índice de juros ainda não implementado nesta fase: ' + indice);
     }
@@ -1773,7 +1747,7 @@ function guia5CalcularJurosDeterministicos(item, inicioJurosISO, atualizacaoISO,
             throw new Error('Não há período de juros definido para a competência ' + guia5ISOParaBR(cursor) + '.');
         }
 
-        var taxa = guia5ObterTaxaJurosDeterministica(periodo.indice);
+        var taxa = guia5ObterTaxaJurosMensal(periodo.indice, cursor);
         totalTaxa += taxa;
         meses++;
 
