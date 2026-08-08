@@ -548,12 +548,28 @@
                         <input type="file" id="fileInputCorrecao" accept=".corr,.json,application/json" class="hidden">
                         <div id="statusCorrecao" class="flex-1 min-w-0 text-sm text-slate-500">Nenhum arquivo carregado.</div>
                     </div>
+
                     <!-- Botões de atalho oficiais -->
-                    <div class="flex flex-wrap gap-2 mt-3 no-print">
-                        <button class="atalho-oficial px-3 py-1 bg-blue-700 text-white text-xs rounded hover:bg-blue-800 transition font-medium" data-encadeamento="MC-PREVID-2026">MC-PREVID-2026</button>
-                        <button class="atalho-oficial px-3 py-1 bg-blue-700 text-white text-xs rounded hover:bg-blue-800 transition font-medium" data-encadeamento="MC-ACOES-GERAL-2026">MC-ACOES-GERAL-2026</button>
-                        <button class="atalho-oficial px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 transition font-medium" data-encadeamento="MC-PREVID-2022">MC-PREVID-2022</button>
-                        <button class="atalho-oficial px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 transition font-medium" data-encadeamento="MC-ACOES-GERAL-2022">MC-ACOES-GERAL-2022</button>
+                    <div class="mt-4 pt-3 border-t border-slate-200 no-print">
+                        <div class="text-xs font-bold text-blue-700 uppercase tracking-wide mb-2">Manual de Cálculos 2026</div>
+                        <div class="flex flex-wrap gap-2">
+                            <button class="atalho-oficial px-3 py-1 bg-blue-700 text-white text-xs rounded hover:bg-blue-800 transition font-medium min-w-[190px] text-center" data-encadeamento="MC-PREVID-2026">
+                                MC-PREVID-2026
+                            </button>
+                            <button class="atalho-oficial px-3 py-1 bg-blue-700 text-white text-xs rounded hover:bg-blue-800 transition font-medium min-w-[190px] text-center" data-encadeamento="MC-ACOES-GERAL-2026">
+                                MC-ACOES-GERAL-2026
+                            </button>
+                        </div>
+
+                        <div class="text-xs font-bold text-orange-700 uppercase tracking-wide mt-3 mb-2">Manual de Cálculos 2022</div>
+                        <div class="flex flex-wrap gap-2">
+                            <button class="atalho-oficial px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 transition font-medium min-w-[190px] text-center" data-encadeamento="MC-PREVID-2022">
+                                MC-PREVID-2022
+                            </button>
+                            <button class="atalho-oficial px-3 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 transition font-medium min-w-[190px] text-center" data-encadeamento="MC-ACOES-GERAL-2022">
+                                MC-ACOES-GERAL-2022
+                            </button>
+                        </div>
                     </div>
                 </div>
 
