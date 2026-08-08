@@ -1,11 +1,12 @@
 // =====================================================================
-// ADMINISTRAÇÃO DE ENCADEAMENTOS – Fase 1.8E (CORREÇÃO MONETÁRIA)
+// ADMINISTRAÇÃO DE ENCADEAMENTOS – Fase 1.8F-E1 (CORREÇÃO MONETÁRIA + ATALHOS OFICIAIS)
 // =====================================================================
 // Inclui:
 // - Admin de parâmetros (CTRL+SHIFT+E)
 // - Carregamento de JSON de correção/juros/SELIC na Guia 5
 // - Importação de diferenças da Guia 4
 // - Motor de correção monetária (cálculo e exibição)
+// - Atalhos oficiais (MC-PREVID-2026, MC-ACOES-GERAL-2026, MC-PREVID-2022, MC-ACOES-GERAL-2022)
 // =====================================================================
 
 // Inicialização segura das variáveis globais
@@ -134,7 +135,8 @@ function adminObterIndicesDisponiveisPorTipo(tipo) {
                 resultados.push({
                     codigo: chave,
                     nome: item.nome || chave,
-                    descricao: item.descricao || ''
+                    descricao: item.descricao || '',
+                    termoInicialPadrao: item.termoInicialPadrao || null
                 });
             }
         }
@@ -449,6 +451,26 @@ function adminAdicionarLinhaPeriodo(tipoTabela, indice, inicio, fim, preservarIn
     var tbody = document.getElementById(tbodyId);
     if (!tbody) return;
 
+    var linhas = tbody.querySelectorAll('tr');
+    var ultimoFim = null;
+    if (linhas.length > 0) {
+        var ultimaLinha = linhas[linhas.length - 1];
+        var fimInput = ultimaLinha.querySelector('.admin-data-fim');
+        if (fimInput && fimInput.value.trim() !== '') {
+            var fimNum = adminCompetenciaParaNumero(fimInput.value.trim());
+            if (!isNaN(fimNum)) {
+                var proxNum = adminProximaCompetenciaNumero(fimNum);
+                var ano = Math.floor(proxNum / 100);
+                var mes = proxNum % 100;
+                ultimoFim = String(mes).padStart(2, '0') + '/' + ano;
+            }
+        }
+    }
+
+    if (!inicio && ultimoFim) {
+        inicio = ultimoFim;
+    }
+
     var tr = document.createElement('tr');
     tr.className = 'border-b border-slate-200';
 
@@ -478,6 +500,29 @@ function adminAdicionarLinhaPeriodo(tipoTabela, indice, inicio, fim, preservarIn
             }
         });
     });
+
+    var selectElement = tr.querySelector('.admin-select-indice');
+    var inicioInput = tr.querySelector('.admin-data-inicio');
+    if (selectElement && inicioInput) {
+        selectElement.addEventListener('change', function() {
+            var selectedOption = this.options[this.selectedIndex];
+            var termoPadrao = selectedOption ? selectedOption.getAttribute('data-termo-padrao') : null;
+            if (termoPadrao && !inicioInput.value.trim()) {
+                inicioInput.value = termoPadrao;
+            }
+        });
+        setTimeout(function() {
+            var selectedOption = selectElement.options[selectElement.selectedIndex];
+            var termoPadrao = selectedOption ? selectedOption.getAttribute('data-termo-padrao') : null;
+            if (termoPadrao && !inicioInput.value.trim()) {
+                inicioInput.value = termoPadrao;
+            }
+        }, 50);
+    }
+}
+
+function adminAtualizarSelectsIndice() {
+    // mantido para compatibilidade
 }
 
 // =====================================================================
@@ -811,6 +856,7 @@ function adminImportarJSON(json) {
             document.getElementById('adminNome').value = json.nome || '';
             document.getElementById('adminDescricao').value = json.descricao || '';
             adminExibirMensagem('✅ Arquivo de correção importado com sucesso.', 'success');
+            limparResultadosAtualizacaoPreservandoDiferencas();
             return;
         } else if (json.tipoParametro === 'juros_mora') {
             document.getElementById('adminTipoParametro').value = 'juros_selic';
@@ -826,6 +872,7 @@ function adminImportarJSON(json) {
             document.getElementById('adminNome').value = json.nome || '';
             document.getElementById('adminDescricao').value = json.descricao || '';
             adminExibirMensagem('✅ Arquivo de juros antigo importado com sucesso. (SELIC vazio)', 'success');
+            limparResultadosAtualizacaoPreservandoDiferencas();
             return;
         } else if (json.tipoParametro === 'selic') {
             document.getElementById('adminTipoParametro').value = 'juros_selic';
@@ -841,6 +888,7 @@ function adminImportarJSON(json) {
             document.getElementById('adminNome').value = json.nome || '';
             document.getElementById('adminDescricao').value = json.descricao || '';
             adminExibirMensagem('✅ Arquivo de SELIC antigo importado com sucesso. (Juros vazio)', 'success');
+            limparResultadosAtualizacaoPreservandoDiferencas();
             return;
         } else {
             adminExibirMensagem('❌ Tipo de parâmetro não reconhecido.', 'error');
@@ -895,6 +943,7 @@ function adminImportarJSON(json) {
         document.getElementById('adminNome').value = json.nome || '';
         document.getElementById('adminDescricao').value = json.descricao || '';
         adminExibirMensagem('✅ Arquivo de Juros e SELIC importado com sucesso.', 'success');
+        limparResultadosAtualizacaoPreservandoDiferencas();
         return;
     }
 
@@ -1096,6 +1145,7 @@ function adminCarregarParametroGuia5(file, tipoEsperado) {
                 window.parametrosCorrecaoAtual = json;
                 adminAtualizarStatusDetalhado('correcao_monetaria', json, '✅ Parâmetros de correção carregados com sucesso!');
                 atualizarBotoesAtualizacao();
+                limparResultadosAtualizacaoPreservandoDiferencas();
                 return;
             }
 
@@ -1135,6 +1185,7 @@ function adminCarregarParametroGuia5(file, tipoEsperado) {
                     selic: selicObj
                 };
                 adminAtualizarStatusDetalhado('juros_selic', pacoteCompleto, '✅ Parâmetros de Juros e SELIC carregados com sucesso!');
+                limparResultadosAtualizacaoPreservandoDiferencas();
                 return;
             }
 
@@ -1156,6 +1207,7 @@ function adminCarregarParametroGuia5(file, tipoEsperado) {
                         selic: null
                     };
                     adminAtualizarStatusDetalhado('juros_selic', pacoteAntigo, '✅ Parâmetros de juros (formato antigo) carregados.');
+                    limparResultadosAtualizacaoPreservandoDiferencas();
                     return;
                 } else if (json.tipoParametro === 'selic') {
                     if (!json.nome || !Array.isArray(json.periodos)) {
@@ -1171,6 +1223,7 @@ function adminCarregarParametroGuia5(file, tipoEsperado) {
                         selic: json
                     };
                     adminAtualizarStatusDetalhado('juros_selic', pacoteAntigoSelic, '✅ Parâmetros SELIC (formato antigo) carregados.');
+                    limparResultadosAtualizacaoPreservandoDiferencas();
                     return;
                 }
             }
@@ -1249,6 +1302,36 @@ function limparDiferencasAtualizacao(mensagem) {
 }
 
 // =====================================================================
+// RESET AUTOMÁTICO DOS RESULTADOS (Fase 1.8F-E1)
+// =====================================================================
+
+function limparResultadosAtualizacaoPreservandoDiferencas() {
+    window.resultadosAtualizacao = null;
+
+    var container = document.getElementById('containerTabelaDiferencas');
+    var tbody = document.getElementById('corpoDiferencasAtualizacao');
+    var resumo = document.getElementById('resumoAtualizacao');
+    var totalOriginalEl = document.getElementById('totalOriginalAtualizacao');
+    var totalCorrigidoEl = document.getElementById('totalCorrigidoAtualizacao');
+    var totalJurosEl = document.getElementById('totalJurosAtualizacao');
+    var totalSelicEl = document.getElementById('totalSelicAtualizacao');
+    var statusAtualizacao = document.getElementById('statusAtualizacao');
+
+    if (container) container.classList.add('hidden');
+    if (resumo) resumo.classList.add('hidden');
+    if (tbody) tbody.innerHTML = '';
+    if (totalOriginalEl) totalOriginalEl.textContent = 'R$ 0,00';
+    if (totalCorrigidoEl) totalCorrigidoEl.textContent = 'R$ 0,00';
+    if (totalJurosEl) totalJurosEl.textContent = 'R$ 0,00';
+    if (totalSelicEl) totalSelicEl.textContent = 'R$ 0,00';
+
+    if (statusAtualizacao) {
+        statusAtualizacao.textContent = 'Parâmetros alterados. Execute novamente o cálculo da atualização.';
+        statusAtualizacao.className = 'text-sm text-amber-700';
+    }
+}
+
+// =====================================================================
 // COLETA DE DIFERENÇAS DA GUIA 4 (PREPARAÇÃO PARA FUTURO)
 // =====================================================================
 
@@ -1320,7 +1403,7 @@ function guia5CalcularJurosIntervalo(item, inicioJurosISO, fimISO, parametrosJur
         };
     }
 
-    var cursor = guia5ProximaCompetenciaISO(inicioEfetivoISO); // exclui o mês inicial
+    var cursor = guia5ProximaCompetenciaISO(inicioEfetivoISO);
     var criteriosJuros = [];
     var detalhamentoJuros = [];
     var totalTaxa = 0;
@@ -1379,7 +1462,6 @@ function guia5CalcularSelic(item, atualizacaoISO, parametrosSelic) {
     var competenciaISO = item.competenciaISO;
     var fimNum = guia5ISOParaNumero(atualizacaoISO);
 
-    // Ordenar períodos para obter início global
     var periodos = parametrosSelic.periodos.slice().sort(function(a, b) {
         return adminCompetenciaParaNumero(a.inicio) - adminCompetenciaParaNumero(b.inicio);
     });
@@ -1392,11 +1474,10 @@ function guia5CalcularSelic(item, atualizacaoISO, parametrosSelic) {
     }
     var inicioGlobalNum = guia5ISOParaNumero(inicioGlobalISO);
 
-    // Início efetivo: max(competencia, inicioGlobal)
     var inicioNum = Math.max(guia5ISOParaNumero(competenciaISO), inicioGlobalNum);
     var inicioEfetivoISO = String(Math.floor(inicioNum / 100)) + '-' + String(inicioNum % 100).padStart(2, '0');
 
-    var cursor = guia5ProximaCompetenciaISO(inicioEfetivoISO); // exclui o mês inicial
+    var cursor = guia5ProximaCompetenciaISO(inicioEfetivoISO);
     var detalhamentoSelic = [];
     var totalTaxa = 0;
     var meses = 0;
@@ -1422,7 +1503,7 @@ function guia5CalcularSelic(item, atualizacaoISO, parametrosSelic) {
         cursor = guia5ProximaCompetenciaISO(cursor);
     }
 
-    var valorSelic = item.valorCorrigido * totalTaxa / 100; // base será ajustada externamente
+    var valorSelic = item.valorCorrigido * totalTaxa / 100;
 
     return {
         inicioSelicEfetivoISO: inicioEfetivoISO,
@@ -1651,6 +1732,256 @@ function atualizarBotoesAtualizacao() {
         var temParametros = !!window.parametrosCorrecaoAtual;
         btnCalc.disabled = !(temDiferencas && temParametros);
     }
+}
+
+// =====================================================================
+// ENCADEAMENTOS OFICIAIS (Fase 1.8F-E1) – 4 MODELOS COMPLETOS
+// =====================================================================
+const ENCADEAMENTOS_OFICIAIS = {
+    'MC-PREVID-2026': {
+        nome: 'MC-PREVID-2026',
+        descricao: 'Manual de Cálculos Previdenciários 2026',
+        correcao: {
+            periodos: [
+                { indice: 'IPC_R', inicio: '07/1994', fim: '06/1995' },
+                { indice: 'INPC', inicio: '07/1995', fim: '04/1996' },
+                { indice: 'IGPDI', inicio: '05/1996', fim: '07/1996' },
+                { indice: 'SEM_CORRECAO', inicio: '08/1996', fim: '08/1996' },
+                { indice: 'IGPDI', inicio: '09/1996', fim: '08/2006' },
+                { indice: 'INPC', inicio: '09/2006', fim: '11/2021' },
+                { indice: 'SEM_CORRECAO', inicio: '12/2021', fim: '08/2025' },
+                { indice: 'INPC', inicio: '09/2025', fim: '06/2026' }
+            ]
+        },
+        juros: {
+            periodos: [
+                { indice: 'JUROS_POUPANCA', inicio: '01/2020', fim: '12/2021' },
+                { indice: 'SEM_JUROS', inicio: '01/2022', fim: '08/2025' },
+                { indice: 'TAXA_LEGAL_PREVIDENCIARIA', inicio: '09/2025', fim: '06/2026' }
+            ]
+        },
+        selic: {
+            periodos: [
+                { indice: 'SELIC', inicio: '12/2021', fim: '08/2025' }
+            ]
+        }
+    },
+    'MC-ACOES-GERAL-2026': {
+        nome: 'MC-ACOES-GERAL-2026',
+        descricao: 'Manual de Cálculos para Ações em Geral 2026',
+        correcao: {
+            periodos: [
+                { indice: 'UFIR', inicio: '07/1994', fim: '11/2000' },
+                { indice: 'IPCAE_CJF_2000', inicio: '12/2000', fim: '12/2000' },
+                { indice: 'IPCAE', inicio: '01/2001', fim: '11/2021' },
+                { indice: 'SEM_CORRECAO', inicio: '12/2021', fim: '08/2025' },
+                { indice: 'IPCAE', inicio: '09/2025', fim: '06/2026' }
+            ]
+        },
+        juros: {
+            periodos: [
+                { indice: 'JUROS_POUPANCA', inicio: '01/2020', fim: '12/2021' },
+                { indice: 'SEM_JUROS', inicio: '01/2022', fim: '08/2025' },
+                { indice: 'TAXA_LEGAL', inicio: '09/2025', fim: '06/2026' }
+            ]
+        },
+        selic: {
+            periodos: [
+                { indice: 'SELIC', inicio: '12/2021', fim: '08/2025' }
+            ]
+        }
+    },
+    'MC-PREVID-2022': {
+        nome: 'MC-PREVID-2022',
+        descricao: 'Manual de Cálculos Previdenciários 2022',
+        correcao: {
+            periodos: [
+                { indice: 'ORTN', inicio: '10/1964', fim: '02/1986' },
+                { indice: 'OTN', inicio: '03/1986', fim: '01/1989' },
+                { indice: 'IPC_IBGE_EXPURGOS', inicio: '01/1989', fim: '02/1989' },
+                { indice: 'BTN', inicio: '03/1989', fim: '03/1990' },
+                { indice: 'IPC_IBGE', inicio: '03/1990', fim: '02/1991' },
+                { indice: 'INPC', inicio: '03/1991', fim: '12/1992' },
+                { indice: 'IRSM', inicio: '01/1993', fim: '02/1994' },
+                { indice: 'URV', inicio: '03/1994', fim: '06/1994' },
+                { indice: 'IPC_R', inicio: '07/1994', fim: '06/1995' },
+                { indice: 'INPC', inicio: '07/1995', fim: '04/1996' },
+                { indice: 'IGPDI', inicio: '05/1996', fim: '08/2006' },
+                { indice: 'INPC', inicio: '09/2006', fim: '' }
+            ]
+        },
+        juros: {
+            periodos: [
+                { indice: 'JUROS_1_AM', inicio: '01/1994', fim: '08/2001' },
+                { indice: 'JUROS_05_AM', inicio: '09/2001', fim: '06/2009' },
+                { indice: 'JUROS_POUPANCA', inicio: '07/2009', fim: '11/2021' }
+            ]
+        },
+        selic: {
+            periodos: [
+                { indice: 'SELIC', inicio: '12/2021', fim: '' }
+            ]
+        }
+    },
+    'MC-ACOES-GERAL-2022': {
+        nome: 'MC-ACOES-GERAL-2022',
+        descricao: 'Manual de Cálculos para Ações em Geral 2022',
+        correcao: {
+            periodos: [
+                { indice: 'ORTN', inicio: '10/1964', fim: '02/1986' },
+                { indice: 'OTN', inicio: '03/1986', fim: '01/1989' },
+                { indice: 'IPC_IBGE_EXPURGOS', inicio: '01/1989', fim: '02/1989' },
+                { indice: 'BTN', inicio: '03/1989', fim: '03/1990' },
+                { indice: 'IPC_IBGE', inicio: '03/1990', fim: '02/1991' },
+                { indice: 'INPC', inicio: '03/1991', fim: '11/1991' },
+                { indice: 'IPCAE', inicio: '12/1991', fim: '12/1991' },
+                { indice: 'UFIR', inicio: '01/1992', fim: '12/2000' },
+                { indice: 'IPCAE', inicio: '01/2001', fim: '' }
+            ]
+        },
+        juros: {
+            periodos: [
+                { indice: 'JUROS_1_AM', inicio: '01/1994', fim: '08/2001' },
+                { indice: 'JUROS_05_AM', inicio: '09/2001', fim: '06/2009' },
+                { indice: 'JUROS_POUPANCA', inicio: '07/2009', fim: '11/2021' }
+            ]
+        },
+        selic: {
+            periodos: [
+                { indice: 'SELIC', inicio: '12/2021', fim: '' }
+            ]
+        }
+    }
+};
+
+// =====================================================================
+// AUXILIARES PARA ATALHOS OFICIAIS (Fase 1.8F-E1) – REGRA CORRIGIDA
+// =====================================================================
+
+function obterCompetenciaInicialEfetiva() {
+    // 1. Tentar obter a menor competência das diferenças importadas
+    if (window.diferencasAtualizacaoAtual && window.diferencasAtualizacaoAtual.length > 0) {
+        var competencias = [];
+        window.diferencasAtualizacaoAtual.forEach(function(item) {
+            if (item && item.competencia) {
+                var comp = item.competencia.trim();
+                var partes = comp.split('/');
+                if (partes.length === 3) {
+                    comp = partes[1] + '/' + partes[2]; // DD/MM/AAAA → MM/AAAA
+                }
+                if (/^\d{2}\/\d{4}$/.test(comp)) {
+                    competencias.push(comp);
+                }
+            }
+        });
+        if (competencias.length > 0) {
+            var menor = competencias.reduce(function(a, b) {
+                var numA = adminCompetenciaParaNumero(a);
+                var numB = adminCompetenciaParaNumero(b);
+                return (numA <= numB) ? a : b;
+            });
+            return menor;
+        }
+    }
+
+    // 2. Fallback: termo inicial (se não houver diferenças)
+    var termoInput = document.getElementById('termoInicialDiferencas');
+    if (termoInput && termoInput.value) {
+        var termo = termoInput.value.trim();
+        var partes = termo.split('/');
+        if (partes.length === 3) {
+            termo = partes[1] + '/' + partes[2];
+        }
+        if (/^\d{2}\/\d{4}$/.test(termo)) {
+            return termo;
+        }
+    }
+
+    // 3. Nenhuma fonte
+    return null;
+}
+
+function filtrarEAjustarPeriodos(periodos, competenciaInicial) {
+    if (!periodos || periodos.length === 0 || !competenciaInicial) {
+        return periodos;
+    }
+    var numInicial = adminCompetenciaParaNumero(competenciaInicial);
+    if (isNaN(numInicial)) {
+        return periodos;
+    }
+
+    // Cópia profunda para não alterar o original
+    var copia = periodos.map(function(p) {
+        return { indice: p.indice, inicio: p.inicio, fim: p.fim || '' };
+    });
+
+    var filtrados = copia.filter(function(p) {
+        if (!p.fim || p.fim.trim() === '') return true;
+        var numFim = adminCompetenciaParaNumero(p.fim);
+        if (isNaN(numFim)) return true;
+        return numFim >= numInicial;
+    });
+
+    if (filtrados.length === 0) {
+        return [];
+    }
+
+    var primeiro = filtrados[0];
+    var numInicio = adminCompetenciaParaNumero(primeiro.inicio);
+    if (numInicio < numInicial) {
+        primeiro.inicio = competenciaInicial;
+    }
+
+    return filtrados;
+}
+
+function carregarEncadeamentoOficial(nome) {
+    var enc = ENCADEAMENTOS_OFICIAIS[nome];
+    if (!enc) {
+        adminExibirMensagemGuia5('Encadeamento oficial "' + nome + '" não encontrado.', 'error', 'correcao_monetaria');
+        return;
+    }
+
+    var competenciaInicial = obterCompetenciaInicialEfetiva();
+
+    // --- Correção ---
+    var periodosCorrecao = enc.correcao.periodos;
+    if (competenciaInicial) {
+        periodosCorrecao = filtrarEAjustarPeriodos(periodosCorrecao, competenciaInicial);
+    }
+    var jsonCorrecao = {
+        tipoArquivo: 'parametros_atualizacao',
+        tipoParametro: 'correcao_monetaria',
+        nome: enc.nome,
+        descricao: enc.descricao,
+        periodos: periodosCorrecao
+    };
+    window.parametrosCorrecaoAtual = jsonCorrecao;
+    adminAtualizarStatusDetalhado('correcao_monetaria', jsonCorrecao, '✅ Correção carregada: ' + nome);
+
+    // --- Juros ---
+    var periodosJuros = enc.juros ? enc.juros.periodos : [];
+    if (competenciaInicial && periodosJuros.length > 0) {
+        periodosJuros = filtrarEAjustarPeriodos(periodosJuros, competenciaInicial);
+    }
+    var periodosSelic = enc.selic ? enc.selic.periodos : [];
+    if (competenciaInicial && periodosSelic.length > 0) {
+        periodosSelic = filtrarEAjustarPeriodos(periodosSelic, competenciaInicial);
+    }
+
+    var pacoteJurosSelic = {
+        nome: enc.nome + ' (Juros/SELIC)',
+        descricao: enc.descricao,
+        juros: (periodosJuros.length > 0) ? { tipoParametro: 'juros_mora', periodos: periodosJuros } : null,
+        selic: (periodosSelic.length > 0) ? { tipoParametro: 'selic', periodos: periodosSelic } : null
+    };
+    window.parametrosJurosAtual = pacoteJurosSelic.juros;
+    window.parametrosSelicAtual = pacoteJurosSelic.selic;
+    adminAtualizarStatusDetalhado('juros_selic', pacoteJurosSelic, '✅ Juros e SELIC carregados: ' + nome);
+
+    // Reset e atualização
+    limparResultadosAtualizacaoPreservandoDiferencas();
+    atualizarBotoesAtualizacao();
 }
 
 // =====================================================================
@@ -1978,7 +2309,6 @@ function calcularAtualizacaoGuia5() {
     }
     var atualizacaoNum = guia5ISOParaNumero(atualizacaoISO);
 
-    // Filtro temporal
     var diferencasFiltradas = [];
     var excluidas = 0;
     for (var i = 0; i < window.diferencasAtualizacaoAtual.length; i++) {
@@ -2049,7 +2379,6 @@ function calcularAtualizacaoGuia5() {
                 throw new Error('Competência inválida: ' + item.competencia);
             }
 
-            // Correção monetária
             var resultadoCoef = guia5CalcularCoeficienteMensal(
                 competenciaISO,
                 atualizacaoISO,
@@ -2071,7 +2400,6 @@ function calcularAtualizacaoGuia5() {
                 valorCorrigido: valorCorrigido
             };
 
-            // --- Cálculo de Juros e SELIC (Fase 1.8F-D2) ---
             var valorJurosAntesSelic = 0;
             var percentualJurosTotal = 0;
             var valorJurosTotal = 0;
@@ -2080,7 +2408,6 @@ function calcularAtualizacaoGuia5() {
             var detalhamentoJuros = [];
 
             if (window.parametrosSelicAtual) {
-                // 1. Determinar início efetivo da SELIC
                 var periodosSelic = window.parametrosSelicAtual.periodos;
                 if (!periodosSelic || periodosSelic.length === 0) {
                     throw new Error('Encadeamento SELIC vazio.');
@@ -2093,7 +2420,6 @@ function calcularAtualizacaoGuia5() {
                 var inicioEfetivoNum = Math.max(compNum, inicioSelicNum);
                 var inicioEfetivoISO = String(Math.floor(inicioEfetivoNum / 100)) + '-' + String(inicioEfetivoNum % 100).padStart(2, '0');
 
-                // 2. Juros anteriores à SELIC (até o mês anterior ao início efetivo)
                 var mes = inicioEfetivoNum % 100;
                 var ano = Math.floor(inicioEfetivoNum / 100);
                 if (mes > 1) {
@@ -2117,7 +2443,6 @@ function calcularAtualizacaoGuia5() {
                     detalhamentoJuros = detalhamentoJuros.concat(jurosPre.detalhamento);
                 }
 
-                // 3. Calcular SELIC (a partir do primeiro mês a contar)
                 var cursorSelic = guia5ProximaCompetenciaISO(inicioEfetivoISO);
                 var selicObj = guia5CalcularSelic(obj, atualizacaoISO, window.parametrosSelicAtual);
                 var percentualSelic = selicObj.percentualSelic;
@@ -2125,7 +2450,6 @@ function calcularAtualizacaoGuia5() {
                 var baseSelic = obj.valorCorrigido + valorJurosAntesSelic;
                 var valorSelic = baseSelic * percentualSelic / 100;
 
-                // 4. Juros posteriores à SELIC (após o fim do último período)
                 var ultimoPeriodo = periodosSelic[periodosSelic.length - 1];
                 var fimSelicISO = ultimoPeriodo.fim ? guia5CompetenciaParaISO(ultimoPeriodo.fim) : null;
                 if (fimSelicISO) {
@@ -2136,7 +2460,6 @@ function calcularAtualizacaoGuia5() {
                         var jurosPos = guia5CalcularJurosIntervalo(obj, proxSelic, atualizacaoISO, window.parametrosJurosAtual);
                         percentualJurosTotal += jurosPos.percentual;
                         valorJurosTotal += jurosPos.valor;
-                        // Unir criterios sem duplicação
                         jurosPos.criterios.forEach(function(c) {
                             if (criteriosJuros.indexOf(c) === -1) criteriosJuros.push(c);
                         });
@@ -2145,9 +2468,8 @@ function calcularAtualizacaoGuia5() {
                     }
                 }
 
-                // Preencher objeto
                 obj.percentualJurosAntesSelic = jurosPre ? jurosPre.percentual : 0;
-                obj.valorJurosAntesSelic = valorJurosAntesSelic; // interno
+                obj.valorJurosAntesSelic = valorJurosAntesSelic;
                 obj.percentualJurosTotal = percentualJurosTotal;
                 obj.valorJuros = valorJurosTotal;
                 obj.criteriosJuros = criteriosJuros;
@@ -2161,7 +2483,6 @@ function calcularAtualizacaoGuia5() {
                 totalSelic += valorSelic;
 
             } else {
-                // Fluxo sem SELIC (regressão)
                 var jurosTotal = guia5CalcularJurosDeterministicos(obj, inicioJurosISO, atualizacaoISO, window.parametrosJurosAtual);
                 obj.percentualJurosAntesSelic = jurosTotal.percentualJurosAntesSelic;
                 obj.percentualJurosTotal = jurosTotal.percentualJurosTotal;
@@ -2279,6 +2600,14 @@ document.addEventListener('DOMContentLoaded', function() {
             this.value = '';
         });
     }
+
+    // Botões de atalho oficiais (Fase 1.8F-E1)
+    document.querySelectorAll('.atalho-oficial').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var nome = this.dataset.encadeamento;
+            carregarEncadeamentoOficial(nome);
+        });
+    });
 
     var btnImportarDiferencas = document.getElementById('btnImportarDiferencas');
     if (btnImportarDiferencas) {
